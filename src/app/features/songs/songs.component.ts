@@ -9,6 +9,8 @@ import { MatInputModule } from '@angular/material/input';
 import { MatSelectModule } from '@angular/material/select';
 import { MatChipsModule } from '@angular/material/chips';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
+import { MatTableModule } from '@angular/material/table';
+import { MatTooltipModule } from '@angular/material/tooltip';
 import { MAT_DIALOG_DATA, MatDialog, MatDialogModule, MatDialogRef } from '@angular/material/dialog';
 import { MatSnackBar } from '@angular/material/snack-bar';
 import { v4 as uuid } from 'uuid';
@@ -276,7 +278,7 @@ export class SongEditorDialog {
 @Component({
   selector: 'songs-screen',
   standalone: true,
-  imports: [CommonModule, MatButtonModule, MatCardModule, MatIconModule, MatFormFieldModule, MatInputModule, MatChipsModule, ScreenHeaderComponent, MatDialogModule],
+  imports: [CommonModule, MatButtonModule, MatCardModule, MatIconModule, MatFormFieldModule, MatInputModule, MatChipsModule, MatTableModule, MatTooltipModule, ScreenHeaderComponent, MatDialogModule],
   template: `
     <div class="bandos-page">
       <screen-header title="Songs" [subtitle]="subtitle()"></screen-header>
@@ -285,50 +287,96 @@ export class SongEditorDialog {
           <mat-label>Search</mat-label>
           <input matInput [value]="query()" (input)="query.set($any($event.target).value)" placeholder="Title, tuning, or notes…" />
         </mat-form-field>
+      </div>
+      <div class="new-song-row">
         <button mat-flat-button color="primary" (click)="newSong()">+ New song</button>
       </div>
 
       @if (filtered().length === 0) {
         <p class="bandos-muted">No songs yet. Click "+ New song" to add the first one.</p>
       } @else {
-        <div class="bandos-grid">
-          @for (song of filtered(); track song.id) {
-            <mat-card (click)="edit(song)" class="song-card">
-              <div class="title-row">
-                <div class="song-title">{{ song.title }}</div>
-                <div class="badges">
+        <div class="songs-table-wrap">
+          <table mat-table [dataSource]="filtered()" class="songs-table">
+            <ng-container matColumnDef="title">
+              <th mat-header-cell *matHeaderCellDef>Title</th>
+              <td mat-cell *matCellDef="let song">
+                <div class="title-cell">
+                  <span class="song-title">{{ song.title }}</span>
                   @if (song.audioUrl) {
-                    <span class="bandos-pill secondary" title="Has audio">
-                      <mat-icon style="font-size:14px;width:14px;height:14px;">music_note</mat-icon>
-                    </span>
+                    <mat-icon class="audio-icon" matTooltip="Has audio">music_note</mat-icon>
                   }
-                  <span class="bandos-pill">{{ statusLabel(song.status) }}</span>
                 </div>
-              </div>
-              <div class="meta">
-                <span>{{ song.tuning }}</span>
-                <span>·</span>
-                <span>{{ song.bpm }} BPM</span>
-                <span>·</span>
-                <span>{{ song.duration }}</span>
-              </div>
-              @if (song.attachmentLabel) { <div class="attachment-label">{{ song.attachmentLabel }}</div> }
-              @if (song.notes) { <div class="notes">{{ song.notes }}</div> }
-            </mat-card>
-          }
+                @if (song.attachmentLabel) {
+                  <div class="attachment-label">{{ song.attachmentLabel }}</div>
+                }
+              </td>
+            </ng-container>
+
+            <ng-container matColumnDef="status">
+              <th mat-header-cell *matHeaderCellDef>Status</th>
+              <td mat-cell *matCellDef="let song">
+                <span class="bandos-pill">{{ statusLabel(song.status) }}</span>
+              </td>
+            </ng-container>
+
+            <ng-container matColumnDef="tuning">
+              <th mat-header-cell *matHeaderCellDef>Tuning</th>
+              <td mat-cell *matCellDef="let song">{{ song.tuning }}</td>
+            </ng-container>
+
+            <ng-container matColumnDef="bpm">
+              <th mat-header-cell *matHeaderCellDef>BPM</th>
+              <td mat-cell *matCellDef="let song">{{ song.bpm }}</td>
+            </ng-container>
+
+            <ng-container matColumnDef="duration">
+              <th mat-header-cell *matHeaderCellDef>Duration</th>
+              <td mat-cell *matCellDef="let song">{{ song.duration }}</td>
+            </ng-container>
+
+            <ng-container matColumnDef="actions">
+              <th mat-header-cell *matHeaderCellDef class="actions-col">Actions</th>
+              <td mat-cell *matCellDef="let song" class="actions-col">
+                <button
+                  mat-icon-button
+                  type="button"
+                  matTooltip="Edit"
+                  [disabled]="!canEdit()"
+                  (click)="edit(song); $event.stopPropagation()">
+                  <mat-icon>edit</mat-icon>
+                </button>
+                <button
+                  mat-icon-button
+                  type="button"
+                  color="warn"
+                  matTooltip="Delete"
+                  [disabled]="!canEdit()"
+                  (click)="confirmDelete(song); $event.stopPropagation()">
+                  <mat-icon>delete</mat-icon>
+                </button>
+              </td>
+            </ng-container>
+
+            <tr mat-header-row *matHeaderRowDef="displayedColumns"></tr>
+            <tr mat-row *matRowDef="let row; columns: displayedColumns;" class="song-row" (click)="edit(row)"></tr>
+          </table>
         </div>
       }
     </div>
   `,
   styles: [`
-    .song-card { cursor: pointer; }
-    .song-card:hover { border-color: #EF4A35; }
-    .title-row { display: flex; justify-content: space-between; align-items: flex-start; gap: 8px; }
-    .badges { display: flex; gap: 4px; align-items: center; flex-shrink: 0; }
-    .song-title { font-size: 16px; font-weight: 800; }
-    .meta { color: #9D9DA7; font-size: 12px; margin-top: 6px; display: flex; gap: 6px; }
-    .attachment-label { color: #C8A77B; font-size: 12px; margin-top: 8px; font-weight: 600; }
-    .notes { color: #C7C7CF; font-size: 13px; margin-top: 10px; line-height: 1.4; }
+    .new-song-row { display: flex; justify-content: flex-start; margin-bottom: 12px; }
+    .songs-table-wrap { background: #1D1D23; border: 1px solid #2A2A31; border-radius: 12px; overflow: hidden; }
+    .songs-table { width: 100%; background: transparent; }
+    .songs-table th.mat-mdc-header-cell { background: #16161B; color: #9D9DA7; font-weight: 700; font-size: 12px; text-transform: uppercase; letter-spacing: 0.04em; }
+    .songs-table td.mat-mdc-cell, .songs-table th.mat-mdc-header-cell { border-bottom-color: #2A2A31; color: #E6E6EC; }
+    .song-row { cursor: pointer; }
+    .song-row:hover td.mat-mdc-cell { background: #22222A; }
+    .title-cell { display: flex; align-items: center; gap: 8px; }
+    .song-title { font-weight: 700; }
+    .audio-icon { font-size: 16px; width: 16px; height: 16px; color: #C8A77B; }
+    .attachment-label { color: #C8A77B; font-size: 12px; margin-top: 4px; font-weight: 600; }
+    .actions-col { width: 110px; text-align: right; white-space: nowrap; }
   `],
 })
 export class SongsComponent {
@@ -344,6 +392,11 @@ export class SongsComponent {
     if (M.wsIsFree(w)) return `Free plan · ${w.songs.length} of ${M.wsMaxSongs(w)} songs`;
     return `${w.songs.length} songs in library`;
   });
+  canEdit = computed(() => {
+    const w = this.ws.workspace();
+    return !!w && M.wsCanEditContent(w);
+  });
+  displayedColumns = ['title', 'status', 'tuning', 'bpm', 'duration', 'actions'];
   statusLabel(s: M.SongStatus) { return M.SongStatusLabel[s]; }
 
   newSong() {
@@ -368,5 +421,12 @@ export class SongsComponent {
       if (result?.action === 'save') await this.ws.saveSong(result.song);
       else if (result?.action === 'delete') await this.ws.deleteSong(song.id);
     });
+  }
+  async confirmDelete(song: M.Song) {
+    if (!this.canEdit()) return;
+    const ok = window.confirm(`Delete "${song.title}"? This can't be undone.`);
+    if (!ok) return;
+    await this.ws.deleteSong(song.id);
+    this.snack.open('Song deleted.', 'OK', { duration: 1800 });
   }
 }
