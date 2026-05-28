@@ -32,7 +32,8 @@ export const bandosRedirectGuard: CanActivateFn = (route, state) => {
   const pendingState = ws.pendingAccess();
 
   if (authState.kind === 'loading' || wsState.kind === 'loading') {
-    return onLoading ? true : router.parseUrl('/loading');
+    if (onLoading) return true;
+    return router.createUrlTree(['/loading'], { queryParams: { next: state.url } });
   }
 
   const user = AsyncState.valueOrNull(authState);

@@ -1,0 +1,13 @@
+{
+  "navigationFallback": {
+    "rewrite": "/index.html",
+    "exclude": [
+      "/*.{ico,png,jpg,jpeg,gif,svg,webp,css,js,map,woff,woff2,ttf,eot,json,wasm,txt,xml}",
+      "/branding/*",
+      "/assets/*"
+    ]
+  },
+  "mimeTypes": {
+    ".json": "application/json"
+  }
+}

@@ -1,5 +1,5 @@
 import { Component, effect, inject } from '@angular/core';
-import { Router } from '@angular/router';
+import { ActivatedRoute, Router } from '@angular/router';
 import { AuthController } from '../../core/state/auth-controller.service';
 import { WorkspaceController } from '../../core/state/workspace-controller.service';
 import { AsyncState } from '../../core/state/async-state';
@@ -46,6 +46,7 @@ export class LoadingScreenComponent {
   private readonly auth = inject(AuthController);
   private readonly ws = inject(WorkspaceController);
   private readonly router = inject(Router);
+  private readonly route = inject(ActivatedRoute);
 
   constructor() {
     effect(() => {
@@ -64,7 +65,7 @@ export class LoadingScreenComponent {
       if (wsState.kind === 'loading') return;
       const workspace = AsyncState.valueOrNull(wsState);
       if (workspace) {
-        this.router.navigateByUrl('/app/dashboard');
+        this.router.navigateByUrl(this.resolveNext('/app/dashboard'));
         return;
       }
 
@@ -77,5 +78,12 @@ export class LoadingScreenComponent {
 
       this.router.navigateByUrl('/band-setup');
     });
+  }
+
+  /** Returns the `next` query param if it points at an /app route, else the fallback. */
+  private resolveNext(fallback: string): string {
+    const next = this.route.snapshot.queryParamMap.get('next');
+    if (next && next.startsWith('/app')) return next;
+    return fallback;
   }
 }
