@@ -130,3 +130,8 @@ a:hover { text-decoration: underline; }
   gap: 12px;
   flex-wrap: wrap;
 }
+
+/* Suppress page scrollbars while a CDK drag is in flight — the drag preview can briefly
+   nudge layout and trigger a spurious vertical scrollbar. The class is toggled on <body>
+   by drag start/end handlers (see TasksComponent.onDragStarted/onDragEnded). */
+body.bandos-dragging { overflow: hidden; }

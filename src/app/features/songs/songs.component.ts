@@ -21,6 +21,24 @@ import * as M from '../../core/models/models';
 const ALLOWED_AUDIO_EXTENSIONS = ['mp3', 'm4a', 'wav', 'aac'];
 const AUDIO_MAX_BYTES = 25 * 1024 * 1024;
 
+const COMMON_TUNINGS = [
+  'E standard',
+  'Eb standard',
+  'D standard',
+  'C# standard',
+  'C standard',
+  'B standard (7-string)',
+  'Drop D',
+  'Drop C#',
+  'Drop C',
+  'Drop B',
+  'Drop A',
+  'DADGAD',
+  'Open G',
+  'Open D',
+  'Open E',
+];
+
 interface SongEditorData {
   song?: M.Song;
   releases: M.SongRelease[];
@@ -56,7 +74,12 @@ function fileExtension(name: string): string {
     <form [formGroup]="form" (ngSubmit)="save()" mat-dialog-content class="bandos-stack" style="min-width:460px;max-height:75vh;">
       <mat-form-field appearance="fill"><mat-label>Title</mat-label><input matInput formControlName="title" /></mat-form-field>
       <div class="bandos-row">
-        <mat-form-field appearance="fill" style="flex:1;"><mat-label>Tuning</mat-label><input matInput formControlName="tuning" /></mat-form-field>
+        <mat-form-field appearance="fill" style="flex:1;">
+          <mat-label>Tuning</mat-label>
+          <mat-select formControlName="tuning">
+            @for (t of tuningOptions(); track t) { <mat-option [value]="t">{{ t }}</mat-option> }
+          </mat-select>
+        </mat-form-field>
         <mat-form-field appearance="fill" style="flex:1;"><mat-label>BPM</mat-label><input matInput type="number" formControlName="bpm" /></mat-form-field>
       </div>
       <div class="bandos-row">
@@ -142,7 +165,7 @@ function fileExtension(name: string): string {
     </form>
     <div mat-dialog-actions align="end">
       @if (existing) {
-        <button mat-button color="warn" (click)="remove()" [disabled]="uploading()">Delete</button>
+        <button mat-button color="warn" style="margin-right: auto;" (click)="remove()" [disabled]="uploading()">Delete</button>
       }
       <button mat-button (click)="ref.close()" [disabled]="uploading()">Cancel</button>
       <button mat-flat-button color="primary" (click)="save()" [disabled]="uploading()">
@@ -178,6 +201,12 @@ export class SongEditorDialog {
   showReleaseField = computed(() => this.data.releases.length > 0 || !!this.data.song?.releaseId);
   supportsAudioUpload = computed(() => this.ws.supportsSongAudioUpload);
   canManageAudio = computed(() => this.data.canEdit && this.supportsAudioUpload());
+  /** Common presets, plus the song's current value if it's something custom (preserves old data). */
+  tuningOptions = computed(() => {
+    const current = this.data.song?.tuning?.trim();
+    if (current && !COMMON_TUNINGS.includes(current)) return [current, ...COMMON_TUNINGS];
+    return COMMON_TUNINGS;
+  });
 
   existingAudioUrl = signal<string | null>(this.data.song?.audioUrl ?? null);
   pendingAudio = signal<PendingAudio | null>(null);

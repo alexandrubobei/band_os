@@ -7,6 +7,9 @@ import { MatIconModule } from '@angular/material/icon';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
 import { MatSelectModule } from '@angular/material/select';
+import { MatProgressBarModule } from '@angular/material/progress-bar';
+import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
+import { MatSnackBar } from '@angular/material/snack-bar';
 import { MatDialog, MatDialogModule, MatDialogRef, MAT_DIALOG_DATA } from '@angular/material/dialog';
 import {
   addMonths, eachDayOfInterval, endOfMonth, endOfWeek, format,
@@ -54,7 +57,7 @@ interface EventEditorData { event?: M.BandEvent; seedStartAt?: Date }
       <mat-form-field appearance="fill"><mat-label>Notes</mat-label><textarea matInput rows="3" formControlName="notes"></textarea></mat-form-field>
     </form>
     <div mat-dialog-actions align="end">
-      @if (existing) { <button mat-button color="warn" (click)="remove()">Delete</button> }
+      @if (existing) { <button mat-button color="warn" style="margin-right: auto;" (click)="remove()">Delete</button> }
       <button mat-button (click)="ref.close()">Cancel</button>
       <button mat-flat-button color="primary" (click)="save()">Save</button>
     </div>
@@ -93,12 +96,13 @@ export class EventEditorDialog {
 @Component({
   selector: 'calendar-screen',
   standalone: true,
-  imports: [CommonModule, MatButtonModule, MatCardModule, MatIconModule, ScreenHeaderComponent, MatDialogModule],
+  imports: [CommonModule, MatButtonModule, MatCardModule, MatIconModule, MatProgressBarModule, MatProgressSpinnerModule, ScreenHeaderComponent, MatDialogModule],
   template: `
     <div class="bandos-page">
       <screen-header title="Calendar" subtitle="Rehearsals, shows, recordings, and more."></screen-header>
+      <mat-progress-bar mode="indeterminate" class="page-progress" [class.visible]="isBusy()"></mat-progress-bar>
       <div class="bandos-toolbar">
-        <button mat-flat-button color="primary" (click)="newEvent()">+ New event</button>
+        <button mat-flat-button color="primary" (click)="newEvent()" [disabled]="isBusy()">+ New event</button>
       </div>
 
       <div class="cal-card">
@@ -120,8 +124,9 @@ export class EventEditorDialog {
               <div class="cal-day-num">{{ day.date.getDate() }}</div>
               @for (e of day.events.slice(0, 3); track e.id) {
                 <div class="cal-chip"
+                     [class.is-saving]="isSavingEvent(e.id)"
                      [style.background]="colorFor(e.type)"
-                     (click)="edit(e); $event.stopPropagation()">
+                     (click)="onChipClick(e); $event.stopPropagation()">
                   <span class="cal-chip-time">{{ e.startAt | date:'HH:mm' }}</span>
                   <span class="cal-chip-title">{{ e.title }}</span>
                 </div>
@@ -139,7 +144,7 @@ export class EventEditorDialog {
       } @else {
         <div class="bandos-stack">
           @for (e of events(); track e.id) {
-            <mat-card (click)="edit(e)" style="cursor:pointer;">
+            <mat-card (click)="onCardClick(e)" class="ev-card">
               <div class="ev-row">
                 <div class="date" [style.borderLeft]="'4px solid ' + colorFor(e.type)">
                   <div class="d">{{ e.startAt | date:'d' }}</div>
@@ -154,6 +159,11 @@ export class EventEditorDialog {
                   @if (e.notes) { <div class="notes">{{ e.notes }}</div> }
                 </div>
               </div>
+              @if (isSavingEvent(e.id)) {
+                <div class="saving-overlay">
+                  <mat-spinner diameter="22" strokeWidth="3"></mat-spinner>
+                </div>
+              }
             </mat-card>
           }
         </div>
@@ -161,6 +171,25 @@ export class EventEditorDialog {
     </div>
   `,
   styles: [`
+    .page-progress { visibility: hidden; opacity: 0; transition: opacity 0.15s ease; margin-bottom: 6px; border-radius: 999px; overflow: hidden; }
+    .page-progress.visible { visibility: visible; opacity: 1; }
+
+    .ev-card { cursor: pointer; position: relative; }
+    .saving-overlay {
+      position: absolute; inset: 0;
+      background: rgba(22,22,27,0.65);
+      display: flex; align-items: center; justify-content: center;
+      border-radius: inherit;
+      cursor: wait;
+      z-index: 2;
+    }
+
+    .cal-chip.is-saving { animation: chipPulse 1.2s ease-in-out infinite; cursor: wait; }
+    @keyframes chipPulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.4; }
+    }
+
     .ev-row { display: flex; gap: 14px; align-items: flex-start; }
     .date { width: 60px; text-align: center; padding: 8px; border-radius: 10px; background: #1D1D23; }
     .date .d { font-size: 22px; font-weight: 800; line-height: 1; }
@@ -207,6 +236,15 @@ export class EventEditorDialog {
 export class CalendarComponent {
   private readonly wsc = inject(WorkspaceController);
   private readonly dialog = inject(MatDialog);
+  private readonly snack = inject(MatSnackBar);
+
+  /** Counter of in-flight create/update/delete ops. Drives the page-level progress bar. */
+  private readonly pendingOps = signal(0);
+  /** Per-event saving state for update/delete. Drives the card spinner overlay + chip pulse. */
+  private readonly savingEventIds = signal(new Set<string>());
+
+  readonly isBusy = computed(() => this.pendingOps() > 0);
+  isSavingEvent(id: string): boolean { return this.savingEventIds().has(id); }
 
   currentMonth = signal(new Date());
   weekdayLabels = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
@@ -236,23 +274,68 @@ export class CalendarComponent {
   nextMonth() { this.currentMonth.set(addMonths(this.currentMonth(), 1)); }
   goToday() { this.currentMonth.set(new Date()); }
 
+  onChipClick(e: M.BandEvent) {
+    if (this.isSavingEvent(e.id)) return;
+    this.edit(e);
+  }
+
+  onCardClick(e: M.BandEvent) {
+    if (this.isSavingEvent(e.id)) return;
+    this.edit(e);
+  }
+
   newEvent() {
+    if (this.isBusy()) return;
     const ref = this.dialog.open(EventEditorDialog, { data: {} });
-    ref.afterClosed().subscribe(async r => { if (r?.action === 'save') await this.wsc.saveEvent(r.event); });
+    ref.afterClosed().subscribe(async r => {
+      if (r?.action === 'save') await this.runOp(null, 'Event created.', () => this.wsc.saveEvent(r.event));
+    });
   }
 
   newEventOn(date: Date) {
+    if (this.isBusy()) return;
     const seed = new Date(date);
     seed.setHours(19, 0, 0, 0);
     const ref = this.dialog.open(EventEditorDialog, { data: { seedStartAt: seed } });
-    ref.afterClosed().subscribe(async r => { if (r?.action === 'save') await this.wsc.saveEvent(r.event); });
+    ref.afterClosed().subscribe(async r => {
+      if (r?.action === 'save') await this.runOp(null, 'Event created.', () => this.wsc.saveEvent(r.event));
+    });
   }
 
   edit(e: M.BandEvent) {
+    if (this.isSavingEvent(e.id)) return;
     const ref = this.dialog.open(EventEditorDialog, { data: { event: e } });
     ref.afterClosed().subscribe(async r => {
-      if (r?.action === 'save') await this.wsc.saveEvent(r.event);
-      else if (r?.action === 'delete') await this.wsc.deleteEvent(e.id);
+      if (r?.action === 'save') await this.runOp(e.id, 'Event updated.', () => this.wsc.saveEvent(r.event));
+      else if (r?.action === 'delete') await this.runOp(e.id, 'Event deleted.', () => this.wsc.deleteEvent(e.id));
     });
+  }
+
+  /**
+   * Wraps an async workspace mutation with the page-level progress bar (always) and the
+   * per-event saving state (when eventId is provided). Shows a success/error snackbar.
+   */
+  private async runOp<T>(eventId: string | null, successMsg: string, fn: () => Promise<T>): Promise<T | null> {
+    this.pendingOps.update(n => n + 1);
+    if (eventId) {
+      const next = new Set(this.savingEventIds());
+      next.add(eventId);
+      this.savingEventIds.set(next);
+    }
+    try {
+      const result = await fn();
+      this.snack.open(successMsg, 'OK', { duration: 1800 });
+      return result;
+    } catch (err: any) {
+      this.snack.open(err?.message ?? 'Action failed.', 'OK', { duration: 3000 });
+      return null;
+    } finally {
+      this.pendingOps.update(n => Math.max(0, n - 1));
+      if (eventId) {
+        const next = new Set(this.savingEventIds());
+        next.delete(eventId);
+        this.savingEventIds.set(next);
+      }
+    }
   }
 }

@@ -181,8 +181,10 @@ export const TaskJson = {
   toJson(t: M.BandTask): any {
     return {
       id: t.id, title: t.title, description: t.description,
-      assigneeDisplayName: t.assigneeDisplayName, dueDate: t.dueDate.toISOString(),
+      assigneeDisplayName: t.assigneeDisplayName,
+      dueDate: t.dueDate?.toISOString() ?? null,
       status: t.status, priority: t.priority,
+      songId: t.songId ?? null,
       createdByUid: t.createdByUid ?? null, assigneeUid: t.assigneeUid ?? null,
       updatedAt: t.updatedAt?.toISOString() ?? null,
     };
@@ -191,9 +193,10 @@ export const TaskJson = {
     return {
       id: j.id, title: j.title, description: j.description ?? '',
       assigneeDisplayName: j.assigneeDisplayName ?? '',
-      dueDate: parseDate(j.dueDate),
+      dueDate: parseDateOrNull(j.dueDate),
       status: asEnum(Enums.taskStatusValues, j.status, 'todo') as M.BandTaskStatus,
       priority: asEnum(Enums.taskPriorityValues, j.priority, 'medium') as M.BandTaskPriority,
+      songId: j.songId ?? null,
       createdByUid: j.createdByUid ?? null, assigneeUid: j.assigneeUid ?? null,
       updatedAt: parseDateOrNull(j.updatedAt),
     };

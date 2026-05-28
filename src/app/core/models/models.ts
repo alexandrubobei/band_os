@@ -264,9 +264,10 @@ export interface BandTask {
   title: string;
   description: string;
   assigneeDisplayName: string;
-  dueDate: Date;
+  dueDate: Date | null;
   status: BandTaskStatus;
   priority: BandTaskPriority;
+  songId: string | null;
   createdByUid?: string | null;
   assigneeUid?: string | null;
   updatedAt?: Date | null;

@@ -72,7 +72,7 @@ import * as M from '../../core/models/models';
       <mat-form-field appearance="fill"><mat-label>Additional notes</mat-label><textarea matInput rows="3" formControlName="additionalNotes"></textarea></mat-form-field>
     </form>
     <div mat-dialog-actions align="end">
-      @if (existing) { <button mat-button color="warn" (click)="remove()">Delete</button> }
+      @if (existing) { <button mat-button color="warn" style="margin-right: auto;" (click)="remove()">Delete</button> }
       <button mat-button (click)="ref.close()">Cancel</button>
       <button mat-flat-button color="primary" (click)="save()">Save</button>
     </div>

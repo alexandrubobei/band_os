@@ -35,7 +35,7 @@ import * as M from '../../core/models/models';
       <mat-form-field appearance="fill"><mat-label>Notes</mat-label><textarea matInput rows="2" formControlName="notes"></textarea></mat-form-field>
     </form>
     <div mat-dialog-actions align="end">
-      @if (existing) { <button mat-button color="warn" (click)="ref.close({ action: 'delete' })">Delete</button> }
+      @if (existing) { <button mat-button color="warn" style="margin-right: auto;" (click)="ref.close({ action: 'delete' })">Delete</button> }
       <button mat-button (click)="ref.close()">Cancel</button>
       <button mat-flat-button color="primary" (click)="save()">Save</button>
     </div>
@@ -88,7 +88,7 @@ export class ExpenseEditorDialog {
       <mat-form-field appearance="fill"><mat-label>Notes</mat-label><textarea matInput rows="2" formControlName="notes"></textarea></mat-form-field>
     </form>
     <div mat-dialog-actions align="end">
-      @if (existing) { <button mat-button color="warn" (click)="ref.close({ action: 'delete' })">Delete</button> }
+      @if (existing) { <button mat-button color="warn" style="margin-right: auto;" (click)="ref.close({ action: 'delete' })">Delete</button> }
       <button mat-button (click)="ref.close()">Cancel</button>
       <button mat-flat-button color="primary" (click)="save()">Save</button>
     </div>

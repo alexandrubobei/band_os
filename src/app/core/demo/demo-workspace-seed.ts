@@ -40,9 +40,9 @@ export function buildDemoWorkspace(opts: {
       { id: 'event-vocal-tracking', title: 'Vocal tracking', type: M.BandEventType.recording, startAt: new Date(2026, 3, 22, 21, 2), location: 'Sample Sound Studio', notes: 'Print final lyric sheet and warm up before take one.', checklist: [{ label: 'Print lyric sheet', isDone: false }, { label: 'Prep harmony cues', isDone: false }] },
     ],
     tasks: [
-      { id: 'task-post-flyer', title: 'Post final flyer assets', description: 'Schedule story and feed post for Friday bill.', assigneeDisplayName: 'Orion Pike', dueDate: new Date(2026, 3, 12), status: M.BandTaskStatus.inProgress, priority: M.BandTaskPriority.high },
-      { id: 'task-count-shirts', title: 'Count shirts and patches', description: 'Update merch inventory before the next show.', assigneeDisplayName: 'Juno Slate', dueDate: new Date(2026, 3, 14), status: M.BandTaskStatus.todo, priority: M.BandTaskPriority.medium },
-      { id: 'task-bounce-stems', title: 'Bounce backing stems', description: 'Export show-safe stereo stems and backup WAV.', assigneeDisplayName: 'Nova Vale', dueDate: new Date(2026, 3, 15), status: M.BandTaskStatus.todo, priority: M.BandTaskPriority.high },
+      { id: 'task-post-flyer', title: 'Post final flyer assets', description: 'Schedule story and feed post for Friday bill.', assigneeDisplayName: 'Orion Pike', dueDate: new Date(2026, 3, 12), status: M.BandTaskStatus.inProgress, priority: M.BandTaskPriority.high, songId: null },
+      { id: 'task-count-shirts', title: 'Count shirts and patches', description: 'Update merch inventory before the next show.', assigneeDisplayName: 'Juno Slate', dueDate: new Date(2026, 3, 14), status: M.BandTaskStatus.todo, priority: M.BandTaskPriority.medium, songId: null },
+      { id: 'task-bounce-stems', title: 'Bounce backing stems', description: 'Export show-safe stereo stems and backup WAV.', assigneeDisplayName: 'Nova Vale', dueDate: new Date(2026, 3, 15), status: M.BandTaskStatus.todo, priority: M.BandTaskPriority.high, songId: null },
     ],
     contacts: [
       { id: 'contact-example-hall', name: 'Example Hall', type: M.BandContactType.venue, phone: '+40 720 100 001', email: 'booking@examplehall.test', notes: 'Load-in and stage plot contact for local shows.' },
