@@ -295,7 +295,7 @@ export class SongEditorDialog {
       @if (filtered().length === 0) {
         <p class="bandos-muted">No songs yet. Click "+ New song" to add the first one.</p>
       } @else {
-        <div class="songs-table-wrap">
+        <div class="songs-table-wrap songs-desktop">
           <table mat-table [dataSource]="filtered()" class="songs-table">
             <ng-container matColumnDef="title">
               <th mat-header-cell *matHeaderCellDef>Title</th>
@@ -361,6 +361,52 @@ export class SongEditorDialog {
             <tr mat-row *matRowDef="let row; columns: displayedColumns;" class="song-row" (click)="edit(row)"></tr>
           </table>
         </div>
+
+        <div class="songs-mobile">
+          @for (song of filtered(); track song.id) {
+            <div class="song-card" (click)="edit(song)">
+              <div class="song-card-header">
+                <div class="title-cell">
+                  <span class="song-title">{{ song.title }}</span>
+                  @if (song.audioUrl) {
+                    <mat-icon class="audio-icon" matTooltip="Has audio">music_note</mat-icon>
+                  }
+                </div>
+                <div class="song-card-actions">
+                  <button
+                    mat-icon-button
+                    type="button"
+                    matTooltip="Edit"
+                    [disabled]="!canEdit()"
+                    (click)="edit(song); $event.stopPropagation()">
+                    <mat-icon>edit</mat-icon>
+                  </button>
+                  <button
+                    mat-icon-button
+                    type="button"
+                    color="warn"
+                    matTooltip="Delete"
+                    [disabled]="!canEdit()"
+                    (click)="confirmDelete(song); $event.stopPropagation()">
+                    <mat-icon>delete</mat-icon>
+                  </button>
+                </div>
+              </div>
+              @if (song.attachmentLabel) {
+                <div class="attachment-label">{{ song.attachmentLabel }}</div>
+              }
+              <div class="song-card-meta">
+                <span class="bandos-pill">{{ statusLabel(song.status) }}</span>
+                <span class="meta-sep">·</span>
+                <span>{{ song.tuning }}</span>
+                <span class="meta-sep">·</span>
+                <span>{{ song.bpm }} BPM</span>
+                <span class="meta-sep">·</span>
+                <span>{{ song.duration }}</span>
+              </div>
+            </div>
+          }
+        </div>
       }
     </div>
   `,
@@ -377,6 +423,19 @@ export class SongEditorDialog {
     .audio-icon { font-size: 16px; width: 16px; height: 16px; color: #C8A77B; }
     .attachment-label { color: #C8A77B; font-size: 12px; margin-top: 4px; font-weight: 600; }
     .actions-col { width: 110px; text-align: right; white-space: nowrap; }
+
+    .songs-mobile { display: none; flex-direction: column; gap: 10px; }
+    .song-card { background: #1D1D23; border: 1px solid #2A2A31; border-radius: 12px; padding: 12px 14px; cursor: pointer; display: flex; flex-direction: column; gap: 8px; }
+    .song-card:hover { background: #22222A; }
+    .song-card-header { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+    .song-card-actions { display: flex; gap: 4px; flex-shrink: 0; }
+    .song-card-meta { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; color: #9D9DA7; font-size: 13px; }
+    .meta-sep { color: #4A4A55; }
+
+    @media (max-width: 760px) {
+      .songs-desktop { display: none; }
+      .songs-mobile { display: flex; }
+    }
   `],
 })
 export class SongsComponent {

@@ -1,4 +1,4 @@
-import { Component, computed, inject, signal } from '@angular/core';
+import { Component, computed, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { MatButtonModule } from '@angular/material/button';
@@ -8,6 +8,7 @@ import { MatInputModule } from '@angular/material/input';
 import { MatSelectModule } from '@angular/material/select';
 import { MatIconModule } from '@angular/material/icon';
 import { MatDialog, MatDialogModule, MatDialogRef, MAT_DIALOG_DATA } from '@angular/material/dialog';
+import { CdkDragDrop, DragDropModule } from '@angular/cdk/drag-drop';
 import { v4 as uuid } from 'uuid';
 import { WorkspaceController } from '../../core/state/workspace-controller.service';
 import { ScreenHeaderComponent } from '../../shared/components/screen-header.component';
@@ -81,7 +82,7 @@ export class TaskEditorDialog {
 @Component({
   selector: 'tasks-screen',
   standalone: true,
-  imports: [CommonModule, MatButtonModule, MatCardModule, MatIconModule, ScreenHeaderComponent, MatDialogModule],
+  imports: [CommonModule, MatButtonModule, MatCardModule, MatIconModule, ScreenHeaderComponent, MatDialogModule, DragDropModule],
   template: `
     <div class="bandos-page">
       <screen-header title="Tasks" subtitle="Plan, assign, and track band to-dos."></screen-header>
@@ -89,17 +90,25 @@ export class TaskEditorDialog {
         <button mat-flat-button color="primary" (click)="newTask()">+ New task</button>
       </div>
 
-      <div class="board">
+      <div class="board" cdkDropListGroup>
         @for (col of columns; track col.status) {
           <div class="col">
             <h3>{{ col.label }} <span class="count">{{ countFor(col.status) }}</span></h3>
-            @for (t of tasksFor(col.status); track t.id) {
-              <mat-card (click)="edit(t)" style="cursor:pointer;">
-                <div class="task-title">{{ t.title }}</div>
-                <div class="task-meta">{{ t.assigneeDisplayName }} · due {{ t.dueDate | date:'mediumDate' }}</div>
-                <div class="priority" [class.high]="t.priority === 'high'" [class.medium]="t.priority === 'medium'">{{ priorityLabel(t.priority) }}</div>
-              </mat-card>
-            }
+            <div class="col-list"
+                 cdkDropList
+                 [cdkDropListData]="col.status"
+                 (cdkDropListDropped)="onDrop($event)">
+              @for (t of tasksFor(col.status); track t.id) {
+                <mat-card
+                  cdkDrag
+                  [cdkDragData]="t"
+                  (click)="edit(t)">
+                  <div class="task-title">{{ t.title }}</div>
+                  <div class="task-meta">{{ t.assigneeDisplayName }} · due {{ t.dueDate | date:'mediumDate' }}</div>
+                  <div class="priority" [class.high]="t.priority === 'high'" [class.medium]="t.priority === 'medium'">{{ priorityLabel(t.priority) }}</div>
+                </mat-card>
+              }
+            </div>
           </div>
         }
       </div>
@@ -109,12 +118,21 @@ export class TaskEditorDialog {
     .board { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; }
     .col h3 { font-size: 13px; font-weight: 700; color: #9D9DA7; margin: 0 0 10px; display: flex; justify-content: space-between; }
     .col h3 .count { background: #1D1D23; padding: 2px 8px; border-radius: 999px; font-size: 11px; }
-    .col mat-card { margin-bottom: 10px; padding: 12px !important; }
+    .col-list { min-height: 60px; border-radius: 12px; padding: 2px; transition: background 0.15s ease; }
+    .col-list.cdk-drop-list-dragging { background: rgba(200,167,123,0.05); outline: 1px dashed rgba(200,167,123,0.35); }
+    .col mat-card { margin-bottom: 10px; padding: 12px !important; cursor: grab; }
+    .col mat-card:active { cursor: grabbing; }
     .task-title { font-weight: 700; font-size: 14px; }
     .task-meta { color: #9D9DA7; font-size: 11px; margin-top: 4px; }
     .priority { display: inline-block; margin-top: 8px; padding: 2px 8px; border-radius: 999px; font-size: 11px; background: #1D1D23; color: #9D9DA7; }
     .priority.medium { color: #C8A77B; background: rgba(200,167,123,0.1); }
     .priority.high { color: #EF4A35; background: rgba(239,74,53,0.12); }
+
+    .cdk-drag-preview { box-shadow: 0 10px 30px rgba(0,0,0,0.5); border-radius: 10px; cursor: grabbing; }
+    .cdk-drag-placeholder { opacity: 0.25; }
+    .cdk-drag-animating { transition: transform 200ms cubic-bezier(0,0,0.2,1); }
+    .col-list.cdk-drop-list-dragging mat-card:not(.cdk-drag-placeholder) { transition: transform 200ms cubic-bezier(0,0,0.2,1); }
+
     @media (max-width: 760px) { .board { grid-template-columns: 1fr; } }
   `],
 })
@@ -143,5 +161,12 @@ export class TasksComponent {
       if (r?.action === 'save') await this.wsc.saveTask(r.task);
       else if (r?.action === 'delete') await this.wsc.deleteTask(t.id);
     });
+  }
+
+  async onDrop(event: CdkDragDrop<M.BandTaskStatus>) {
+    const task = event.item.data as M.BandTask;
+    const targetStatus = event.container.data;
+    if (task.status === targetStatus) return;
+    await this.wsc.updateTaskStatus(task.id, targetStatus);
   }
 }

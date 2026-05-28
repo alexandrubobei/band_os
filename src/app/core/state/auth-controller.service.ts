@@ -13,7 +13,6 @@ export class AuthController {
 
   constructor() {
     void this.bootstrap();
-    this.repo.authState$().subscribe(u => this.state.set(AsyncState.data(u)));
   }
 
   get user(): M.AuthUser | null { return AsyncState.valueOrNull(this.state()); }
@@ -31,6 +30,7 @@ export class AuthController {
       this.rememberedEmail.set(email);
       this.rememberEmailPreference.set(pref);
       this.state.set(AsyncState.data(user));
+      this.repo.authState$().subscribe(u => this.state.set(AsyncState.data(u)));
     } catch (err: any) {
       this.state.set(AsyncState.error(err?.message ?? 'Failed to load auth state'));
     }

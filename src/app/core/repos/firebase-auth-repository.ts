@@ -37,6 +37,7 @@ export class FirebaseAuthRepository implements AuthRepository {
 
   async restoreSession(): Promise<M.AuthUser | null> {
     const { auth } = getFirebase();
+    await auth.authStateReady();
     const u = auth.currentUser;
     return u ? fromFirebaseUser(u) : null;
   }
