@@ -10,7 +10,7 @@ import { WorkspaceController } from '../../core/state/workspace-controller.servi
 import { BandAvatarComponent } from '../../shared/components/band-avatar.component';
 import { BandosMarkLogoComponent } from '../../shared/components/bandos-full-logo.component';
 
-interface NavItem { label: string; icon: string; route: string; premiumOnly?: boolean; }
+interface NavItem { label: string; icon: string; route: string; color: string; premiumOnly?: boolean; }
 
 @Component({
   selector: 'app-shell',
@@ -37,7 +37,7 @@ interface NavItem { label: string; icon: string; route: string; premiumOnly?: bo
               [routerLink]="['/app', item.route]"
               routerLinkActive="active"
               class="nav-item">
-              <mat-icon>{{ item.icon }}</mat-icon>
+              <mat-icon [style.color]="item.color">{{ item.icon }}</mat-icon>
               <span>{{ item.label }}</span>
             </a>
           }
@@ -105,16 +105,16 @@ export class AppShellComponent {
   private readonly router = inject(Router);
 
   items: NavItem[] = [
-    { label: 'Dashboard', icon: 'dashboard', route: 'dashboard' },
-    { label: 'Songs', icon: 'library_music', route: 'songs' },
-    { label: 'Setlists', icon: 'queue_music', route: 'setlists' },
-    { label: 'Calendar', icon: 'event', route: 'calendar' },
-    { label: 'Tasks', icon: 'check_box', route: 'tasks' },
-    { label: 'Contacts', icon: 'contacts', route: 'contacts' },
-    { label: 'Riders', icon: 'tune', route: 'riders' },
-    { label: 'Finances', icon: 'account_balance_wallet', route: 'finances' },
-    { label: 'Releases', icon: 'album', route: 'releases' },
-    { label: 'Band', icon: 'group', route: 'band' },
+    { label: 'Dashboard', icon: 'dashboard',              route: 'dashboard', color: '#60A5FA' },
+    { label: 'Songs',     icon: 'library_music',          route: 'songs',     color: '#A78BFA' },
+    { label: 'Setlists',  icon: 'queue_music',            route: 'setlists',  color: '#34D399' },
+    { label: 'Calendar',  icon: 'event',                  route: 'calendar',  color: '#FBBF24' },
+    { label: 'Tasks',     icon: 'check_box',              route: 'tasks',     color: '#FB923C' },
+    { label: 'Contacts',  icon: 'contacts',               route: 'contacts',  color: '#F472B6' },
+    { label: 'Riders',    icon: 'tune',                   route: 'riders',    color: '#22D3EE' },
+    { label: 'Finances',  icon: 'account_balance_wallet', route: 'finances',  color: '#4ADE80' },
+    { label: 'Releases',  icon: 'album',                  route: 'releases',  color: '#C8A77B' },
+    { label: 'Band',      icon: 'group',                  route: 'band',      color: '#EF4A35' },
   ];
 
   workspaceName = computed(() => this.ws.workspace()?.bandName ?? 'No workspace');

@@ -28,9 +28,9 @@ interface TaskEditorData { task?: M.BandTask; songs: M.Song[]; members: M.BandMe
   template: `
     <h2 mat-dialog-title>{{ existing ? 'Edit task' : 'New task' }}</h2>
     <form mat-dialog-content [formGroup]="form" class="bandos-stack" style="min-width:420px;">
-      <mat-form-field appearance="fill"><mat-label>Title</mat-label><input matInput formControlName="title" /></mat-form-field>
-      <mat-form-field appearance="fill"><mat-label>Description</mat-label><textarea matInput rows="3" formControlName="description"></textarea></mat-form-field>
-      <mat-form-field appearance="fill">
+      <mat-form-field appearance="outline"><mat-label>Title</mat-label><input matInput formControlName="title" /></mat-form-field>
+      <mat-form-field appearance="outline"><mat-label>Description</mat-label><textarea matInput rows="3" formControlName="description"></textarea></mat-form-field>
+      <mat-form-field appearance="outline">
         <mat-label>Assignee</mat-label>
         <mat-select formControlName="assigneeUid">
           <mat-option [value]="null">Unassigned</mat-option>
@@ -39,14 +39,14 @@ interface TaskEditorData { task?: M.BandTask; songs: M.Song[]; members: M.BandMe
           }
         </mat-select>
       </mat-form-field>
-      <mat-form-field appearance="fill" (click)="duePicker.open()">
+      <mat-form-field appearance="outline" (click)="duePicker.open()">
         <mat-label>Due date</mat-label>
         <input matInput [matDatepicker]="duePicker" formControlName="dueDate" readonly />
         <mat-hint>Optional</mat-hint>
         <mat-datepicker-toggle matIconSuffix [for]="duePicker"></mat-datepicker-toggle>
         <mat-datepicker #duePicker></mat-datepicker>
       </mat-form-field>
-      <mat-form-field appearance="fill">
+      <mat-form-field appearance="outline">
         <mat-label>Song</mat-label>
         <mat-select formControlName="songId">
           <mat-option [value]="null">None</mat-option>
@@ -54,13 +54,13 @@ interface TaskEditorData { task?: M.BandTask; songs: M.Song[]; members: M.BandMe
         </mat-select>
       </mat-form-field>
       <div class="bandos-row">
-        <mat-form-field appearance="fill" style="flex:1;">
+        <mat-form-field appearance="outline" style="flex:1;">
           <mat-label>Status</mat-label>
           <mat-select formControlName="status">
             @for (s of statuses; track s) { <mat-option [value]="s">{{ statusLabel(s) }}</mat-option> }
           </mat-select>
         </mat-form-field>
-        <mat-form-field appearance="fill" style="flex:1;">
+        <mat-form-field appearance="outline" style="flex:1;">
           <mat-label>Priority</mat-label>
           <mat-select formControlName="priority">
             @for (p of priorities; track p) { <mat-option [value]="p">{{ priorityLabel(p) }}</mat-option> }

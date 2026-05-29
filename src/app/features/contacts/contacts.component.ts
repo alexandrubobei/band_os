@@ -24,16 +24,16 @@ import * as M from '../../core/models/models';
   template: `
     <h2 mat-dialog-title>{{ existing ? 'Edit contact' : 'New contact' }}</h2>
     <form mat-dialog-content [formGroup]="form" class="bandos-stack" style="min-width:420px;">
-      <mat-form-field appearance="fill"><mat-label>Name</mat-label><input matInput formControlName="name" /></mat-form-field>
-      <mat-form-field appearance="fill">
+      <mat-form-field appearance="outline"><mat-label>Name</mat-label><input matInput formControlName="name" /></mat-form-field>
+      <mat-form-field appearance="outline">
         <mat-label>Type</mat-label>
         <mat-select formControlName="type">
           @for (t of types; track t) { <mat-option [value]="t">{{ typeLabel(t) }}</mat-option> }
         </mat-select>
       </mat-form-field>
-      <mat-form-field appearance="fill"><mat-label>Phone</mat-label><input matInput formControlName="phone" /></mat-form-field>
-      <mat-form-field appearance="fill"><mat-label>Email</mat-label><input matInput formControlName="email" /></mat-form-field>
-      <mat-form-field appearance="fill"><mat-label>Notes</mat-label><textarea matInput rows="3" formControlName="notes"></textarea></mat-form-field>
+      <mat-form-field appearance="outline"><mat-label>Phone</mat-label><input matInput formControlName="phone" /></mat-form-field>
+      <mat-form-field appearance="outline"><mat-label>Email</mat-label><input matInput formControlName="email" /></mat-form-field>
+      <mat-form-field appearance="outline"><mat-label>Notes</mat-label><textarea matInput rows="3" formControlName="notes"></textarea></mat-form-field>
     </form>
     <div mat-dialog-actions align="end">
       @if (existing) { <button mat-button color="warn" style="margin-right: auto;" (click)="remove()">Delete</button> }

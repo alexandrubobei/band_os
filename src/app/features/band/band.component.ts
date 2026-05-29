@@ -25,9 +25,9 @@ import * as M from '../../core/models/models';
   template: `
     <h2 mat-dialog-title>Invite member</h2>
     <form mat-dialog-content [formGroup]="form" class="bandos-stack" style="min-width:380px;">
-      <mat-form-field appearance="fill"><mat-label>Display name</mat-label><input matInput formControlName="displayName" /></mat-form-field>
-      <mat-form-field appearance="fill"><mat-label>Email</mat-label><input matInput formControlName="email" /></mat-form-field>
-      <mat-form-field appearance="fill">
+      <mat-form-field appearance="outline"><mat-label>Display name</mat-label><input matInput formControlName="displayName" /></mat-form-field>
+      <mat-form-field appearance="outline"><mat-label>Email</mat-label><input matInput formControlName="email" /></mat-form-field>
+      <mat-form-field appearance="outline">
         <mat-label>Role</mat-label>
         <mat-select formControlName="role">
           @for (r of roles; track r) { <mat-option [value]="r">{{ roleLabel(r) }}</mat-option> }

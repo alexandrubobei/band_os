@@ -26,8 +26,8 @@ import * as M from '../../core/models/models';
   imports: [CommonModule, ReactiveFormsModule, MatButtonModule, MatFormFieldModule, MatInputModule, MatSelectModule, MatIconModule],
   template: `
     <form [formGroup]="form" class="bandos-stack">
-      <mat-form-field appearance="fill"><mat-label>Title</mat-label><input matInput formControlName="title" /></mat-form-field>
-      <mat-form-field appearance="fill"><mat-label>Notes</mat-label><textarea matInput rows="2" formControlName="notes"></textarea></mat-form-field>
+      <mat-form-field appearance="outline"><mat-label>Title</mat-label><input matInput formControlName="title" /></mat-form-field>
+      <mat-form-field appearance="outline"><mat-label>Notes</mat-label><textarea matInput rows="2" formControlName="notes"></textarea></mat-form-field>
 
       <div class="bandos-stack">
         <div class="bandos-row" style="justify-content:space-between;align-items:center;">
@@ -37,13 +37,13 @@ import * as M from '../../core/models/models';
         @for (it of items(); track it.id; let i = $index) {
           <div class="item">
             <span class="ord">{{ i + 1 }}</span>
-            <mat-form-field appearance="fill" style="flex:1;">
+            <mat-form-field appearance="outline" style="flex:1;">
               <mat-label>Song</mat-label>
               <mat-select [value]="it.songId" (selectionChange)="updateItem(i, { songId: $event.value, songTitle: songTitleFor($event.value), songDuration: songDurationFor($event.value) })">
                 @for (s of songs(); track s.id) { <mat-option [value]="s.id">{{ s.title }} ({{ s.duration }})</mat-option> }
               </mat-select>
             </mat-form-field>
-            <mat-form-field appearance="fill" style="width:120px;">
+            <mat-form-field appearance="outline" style="width:120px;">
               <mat-label>Break (sec)</mat-label>
               <input matInput type="number" [value]="it.breakAfterSeconds" (input)="updateItem(i, { breakAfterSeconds: +$any($event.target).value })" />
             </mat-form-field>

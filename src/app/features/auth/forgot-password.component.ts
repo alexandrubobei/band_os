@@ -19,7 +19,7 @@ import { AuthFrameComponent } from './auth-frame.component';
   template: `
     <auth-frame title="Reset your password" subtitle="We'll send a reset link if there is an account for that email.">
       <form [formGroup]="form" (ngSubmit)="submit()" class="bandos-stack">
-        <mat-form-field appearance="fill">
+        <mat-form-field appearance="outline">
           <mat-label>Email</mat-label>
           <input matInput type="email" formControlName="email" />
         </mat-form-field>

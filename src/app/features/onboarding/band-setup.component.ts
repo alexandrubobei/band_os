@@ -36,11 +36,11 @@ import { DEMO_BAND_NAME, DEMO_GENRE, DEMO_INVITE_CODE } from '../../core/demo/de
         <div class="bandos-card">
           @if (mode() === 'create') {
             <form [formGroup]="createForm" (ngSubmit)="submitCreate()" class="bandos-stack">
-              <mat-form-field appearance="fill">
+              <mat-form-field appearance="outline">
                 <mat-label>Band name</mat-label>
                 <input matInput formControlName="bandName" />
               </mat-form-field>
-              <mat-form-field appearance="fill">
+              <mat-form-field appearance="outline">
                 <mat-label>Genre</mat-label>
                 <input matInput formControlName="genre" />
               </mat-form-field>
@@ -51,7 +51,7 @@ import { DEMO_BAND_NAME, DEMO_GENRE, DEMO_INVITE_CODE } from '../../core/demo/de
             </form>
           } @else {
             <form [formGroup]="joinForm" (ngSubmit)="submitJoin()" class="bandos-stack">
-              <mat-form-field appearance="fill">
+              <mat-form-field appearance="outline">
                 <mat-label>Invite code</mat-label>
                 <input matInput formControlName="inviteCode" />
                 <mat-hint>Try {{ demoCode }} to join the demo band.</mat-hint>

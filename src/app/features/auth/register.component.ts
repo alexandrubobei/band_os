@@ -19,17 +19,17 @@ import { AuthFrameComponent } from './auth-frame.component';
   template: `
     <auth-frame title="Create your BandOS account" subtitle="One workspace per band, free to start.">
       <form [formGroup]="form" (ngSubmit)="submit()" class="bandos-stack">
-        <mat-form-field appearance="fill">
+        <mat-form-field appearance="outline">
           <mat-label>Display name</mat-label>
           <input matInput formControlName="displayName" autocomplete="name" />
         </mat-form-field>
 
-        <mat-form-field appearance="fill">
+        <mat-form-field appearance="outline">
           <mat-label>Email</mat-label>
           <input matInput type="email" formControlName="email" autocomplete="email" />
         </mat-form-field>
 
-        <mat-form-field appearance="fill">
+        <mat-form-field appearance="outline">
           <mat-label>Password</mat-label>
           <input matInput type="password" formControlName="password" autocomplete="new-password" />
           <mat-hint>At least 8 characters.</mat-hint>

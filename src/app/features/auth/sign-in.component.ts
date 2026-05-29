@@ -20,7 +20,7 @@ import { AuthFrameComponent } from './auth-frame.component';
   template: `
     <auth-frame subtitle="Rehearsals, shows, songs, tasks, and releases in one place.">
       <form [formGroup]="form" (ngSubmit)="submit()" class="bandos-stack">
-        <mat-form-field appearance="fill">
+        <mat-form-field appearance="outline">
           <mat-label>Email</mat-label>
           <input matInput type="email" formControlName="email" autocomplete="email" />
           @if (form.controls.email.invalid && form.controls.email.touched) {
@@ -28,7 +28,7 @@ import { AuthFrameComponent } from './auth-frame.component';
           }
         </mat-form-field>
 
-        <mat-form-field appearance="fill">
+        <mat-form-field appearance="outline">
           <mat-label>Password</mat-label>
           <input matInput type="password" formControlName="password" autocomplete="current-password" />
           @if (form.controls.password.invalid && form.controls.password.touched) {

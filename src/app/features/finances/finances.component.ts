@@ -20,19 +20,19 @@ import * as M from '../../core/models/models';
   template: `
     <h2 mat-dialog-title>{{ existing ? 'Edit expense' : 'New expense' }}</h2>
     <form mat-dialog-content [formGroup]="form" class="bandos-stack" style="min-width:420px;">
-      <mat-form-field appearance="fill"><mat-label>Title</mat-label><input matInput formControlName="title" /></mat-form-field>
+      <mat-form-field appearance="outline"><mat-label>Title</mat-label><input matInput formControlName="title" /></mat-form-field>
       <div class="bandos-row">
-        <mat-form-field appearance="fill" style="flex:1;"><mat-label>Amount</mat-label><input matInput type="number" formControlName="amount" /></mat-form-field>
-        <mat-form-field appearance="fill" style="flex:1;"><mat-label>Date</mat-label><input matInput type="date" formControlName="date" /></mat-form-field>
+        <mat-form-field appearance="outline" style="flex:1;"><mat-label>Amount</mat-label><input matInput type="number" formControlName="amount" /></mat-form-field>
+        <mat-form-field appearance="outline" style="flex:1;"><mat-label>Date</mat-label><input matInput type="date" formControlName="date" /></mat-form-field>
       </div>
-      <mat-form-field appearance="fill">
+      <mat-form-field appearance="outline">
         <mat-label>Category</mat-label>
         <mat-select formControlName="category">
           @for (c of categories; track c) { <mat-option [value]="c">{{ catLabel(c) }}</mat-option> }
         </mat-select>
       </mat-form-field>
-      <mat-form-field appearance="fill"><mat-label>Paid by</mat-label><input matInput formControlName="paidBy" /></mat-form-field>
-      <mat-form-field appearance="fill"><mat-label>Notes</mat-label><textarea matInput rows="2" formControlName="notes"></textarea></mat-form-field>
+      <mat-form-field appearance="outline"><mat-label>Paid by</mat-label><input matInput formControlName="paidBy" /></mat-form-field>
+      <mat-form-field appearance="outline"><mat-label>Notes</mat-label><textarea matInput rows="2" formControlName="notes"></textarea></mat-form-field>
     </form>
     <div mat-dialog-actions align="end">
       @if (existing) { <button mat-button color="warn" style="margin-right: auto;" (click)="ref.close({ action: 'delete' })">Delete</button> }
@@ -73,19 +73,19 @@ export class ExpenseEditorDialog {
   template: `
     <h2 mat-dialog-title>{{ existing ? 'Edit income' : 'New income' }}</h2>
     <form mat-dialog-content [formGroup]="form" class="bandos-stack" style="min-width:420px;">
-      <mat-form-field appearance="fill"><mat-label>Title</mat-label><input matInput formControlName="title" /></mat-form-field>
+      <mat-form-field appearance="outline"><mat-label>Title</mat-label><input matInput formControlName="title" /></mat-form-field>
       <div class="bandos-row">
-        <mat-form-field appearance="fill" style="flex:1;"><mat-label>Amount</mat-label><input matInput type="number" formControlName="amount" /></mat-form-field>
-        <mat-form-field appearance="fill" style="flex:1;"><mat-label>Date</mat-label><input matInput type="date" formControlName="date" /></mat-form-field>
+        <mat-form-field appearance="outline" style="flex:1;"><mat-label>Amount</mat-label><input matInput type="number" formControlName="amount" /></mat-form-field>
+        <mat-form-field appearance="outline" style="flex:1;"><mat-label>Date</mat-label><input matInput type="date" formControlName="date" /></mat-form-field>
       </div>
-      <mat-form-field appearance="fill">
+      <mat-form-field appearance="outline">
         <mat-label>Source</mat-label>
         <mat-select formControlName="source">
           @for (s of sources; track s) { <mat-option [value]="s">{{ srcLabel(s) }}</mat-option> }
         </mat-select>
       </mat-form-field>
-      <mat-form-field appearance="fill"><mat-label>Received by</mat-label><input matInput formControlName="receivedBy" /></mat-form-field>
-      <mat-form-field appearance="fill"><mat-label>Notes</mat-label><textarea matInput rows="2" formControlName="notes"></textarea></mat-form-field>
+      <mat-form-field appearance="outline"><mat-label>Received by</mat-label><input matInput formControlName="receivedBy" /></mat-form-field>
+      <mat-form-field appearance="outline"><mat-label>Notes</mat-label><textarea matInput rows="2" formControlName="notes"></textarea></mat-form-field>
     </form>
     <div mat-dialog-actions align="end">
       @if (existing) { <button mat-button color="warn" style="margin-right: auto;" (click)="ref.close({ action: 'delete' })">Delete</button> }

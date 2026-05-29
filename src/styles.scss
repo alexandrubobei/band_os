@@ -11,6 +11,8 @@ $bandos-stroke: #2A2A31;
 $bandos-text: #F6F1E8;
 $bandos-muted: #9D9DA7;
 $bandos-hint: #7C7C86;
+$bandos-scroll-thumb: #5C5C70;
+$bandos-scroll-thumb-hover: #8A8A9A;
 
 $bandos-theme: mat.define-theme((
   color: (
@@ -37,6 +39,30 @@ html, body {
 }
 
 * { box-sizing: border-box; }
+
+/* Remove native number-input spinners — they render with OS chrome that clashes with dark theme. */
+input[type=number] { -moz-appearance: textfield; appearance: textfield; }
+input[type=number]::-webkit-inner-spin-button,
+input[type=number]::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
+
+/* Custom scrollbars — themed to match the dark UI instead of the OS default. */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: $bandos-scroll-thumb transparent;
+}
+*::-webkit-scrollbar { width: 10px; height: 10px; }
+*::-webkit-scrollbar-track { background: transparent; }
+*::-webkit-scrollbar-thumb {
+  background: $bandos-scroll-thumb;
+  border-radius: 999px;
+  border: 2px solid transparent;
+  background-clip: padding-box;
+}
+*::-webkit-scrollbar-thumb:hover {
+  background: $bandos-scroll-thumb-hover;
+  background-clip: padding-box;
+}
+*::-webkit-scrollbar-corner { background: transparent; }
 
 a { color: $bandos-accent; text-decoration: none; }
 a:hover { text-decoration: underline; }
@@ -78,7 +104,14 @@ a:hover { text-decoration: underline; }
 .mat-mdc-card { background: $bandos-card !important; border: 1px solid $bandos-stroke; border-radius: 12px !important; color: $bandos-text; padding: 16px; }
 .mat-mdc-form-field { width: 100%; }
 .mat-mdc-form-field-subscript-wrapper { font-size: 12px; }
-.mdc-text-field--filled:not(.mdc-text-field--disabled) { background-color: $bandos-field !important; }
+/* Outline variant — gold/amber border via MDC tokens, always visible */
+.mat-mdc-form-field {
+  --mdc-outlined-text-field-outline-color:       #{$bandos-secondary};
+  --mdc-outlined-text-field-hover-outline-color: #{$bandos-secondary};
+  --mdc-outlined-text-field-focus-outline-color: #{$bandos-secondary};
+  --mdc-outlined-text-field-focus-label-text-color: #{$bandos-secondary};
+  --mdc-outlined-text-field-caret-color:         #{$bandos-secondary};
+}
 .mat-mdc-raised-button.mat-primary,
 .mat-mdc-unelevated-button.mat-primary,
 .mat-mdc-flat-button.mat-primary { background-color: $bandos-accent !important; color: white !important; }
@@ -130,6 +163,10 @@ a:hover { text-decoration: underline; }
   gap: 12px;
   flex-wrap: wrap;
 }
+
+/* Table action icon buttons — edit/expand in blue, delete in app red */
+td.mat-mdc-cell .mat-mdc-icon-button:not(.mat-warn) { color: #60A5FA; }
+td.mat-mdc-cell .mat-mdc-icon-button.mat-warn       { color: #EF4A35; }
 
 /* Suppress page scrollbars while a CDK drag is in flight — the drag preview can briefly
    nudge layout and trigger a spurious vertical scrollbar. The class is toggled on <body>
