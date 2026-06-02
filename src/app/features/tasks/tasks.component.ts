@@ -2,7 +2,6 @@ import { Component, computed, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { MatButtonModule } from '@angular/material/button';
-import { MatButtonToggleModule } from '@angular/material/button-toggle';
 import { MatCardModule } from '@angular/material/card';
 import { MatDatepickerModule } from '@angular/material/datepicker';
 import { MatFormFieldModule } from '@angular/material/form-field';
@@ -161,7 +160,7 @@ const PRIORITY_LANES: TaskGroup[] = [
 @Component({
   selector: 'tasks-screen',
   standalone: true,
-  imports: [CommonModule, MatButtonModule, MatButtonToggleModule, MatCardModule, MatIconModule, MatProgressSpinnerModule, ScreenHeaderComponent, MatDialogModule, DragDropModule],
+  imports: [CommonModule, MatButtonModule, MatCardModule, MatIconModule, MatProgressSpinnerModule, ScreenHeaderComponent, MatDialogModule, DragDropModule],
   template: `
     <div class="bandos-page">
       <screen-header title="Tasks" subtitle="Plan, assign, and track band to-dos."></screen-header>
@@ -169,16 +168,20 @@ const PRIORITY_LANES: TaskGroup[] = [
         <button mat-flat-button color="primary" (click)="newTask()">+ New task</button>
         <div class="group-toggle-wrap">
           <span class="group-label">Group by</span>
-          <mat-button-toggle-group
-            class="group-toggle"
-            [value]="groupMode()"
-            (change)="groupMode.set($event.value)"
-            hideSingleSelectionIndicator>
-            <mat-button-toggle value="none">None</mat-button-toggle>
-            <mat-button-toggle value="assignee">Assignee</mat-button-toggle>
-            <mat-button-toggle value="priority">Priority</mat-button-toggle>
-            <mat-button-toggle value="date">Due date</mat-button-toggle>
-          </mat-button-toggle-group>
+          <div class="segment-control">
+            @for (opt of groupOptions; track opt.value) {
+              <button
+                class="segment-btn"
+                [class.active]="groupMode() === opt.value"
+                [style.--seg-color]="opt.color"
+                [style.background]="groupMode() === opt.value ? opt.activeBg : null"
+                [style.box-shadow]="groupMode() === opt.value ? ('0 0 0 1px ' + opt.ring + ', 0 2px 8px rgba(0,0,0,.4)') : null"
+                [style.color]="groupMode() === opt.value ? opt.color : null"
+                (click)="groupMode.set(opt.value)">
+                <mat-icon>{{ opt.icon }}</mat-icon><span>{{ opt.label }}</span>
+              </button>
+            }
+          </div>
         </div>
       </div>
 
@@ -231,8 +234,28 @@ const PRIORITY_LANES: TaskGroup[] = [
   `,
   styles: [`
     .tasks-toolbar { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
-    .group-toggle-wrap { display: flex; align-items: center; gap: 8px; margin-left: auto; }
+    .group-toggle-wrap { display: flex; align-items: center; gap: 10px; margin-left: auto; }
     .group-label { color: #9D9DA7; font-size: 12px; text-transform: uppercase; letter-spacing: 0.04em; font-weight: 700; }
+    .segment-control {
+      display: flex; align-items: center;
+      background: #17171B; border: 1px solid #2A2A31; border-radius: 10px;
+      padding: 3px; gap: 2px;
+    }
+    .segment-btn {
+      display: flex; align-items: center; gap: 6px;
+      padding: 6px 12px; border-radius: 7px; border: none; cursor: pointer;
+      background: transparent; color: #9D9DA7;
+      font-size: 13px; font-weight: 600; font-family: inherit;
+      transition: color 0.15s, background 0.15s, box-shadow 0.15s;
+    }
+    .segment-btn mat-icon {
+      font-size: 15px; width: 15px; height: 15px;
+      color: var(--seg-color); opacity: 0.45;
+      transition: opacity 0.15s;
+    }
+    .segment-btn:hover:not(.active) { background: #22222A; color: #E6E6EC; }
+    .segment-btn:hover:not(.active) mat-icon { opacity: 0.75; }
+    .segment-btn.active mat-icon { opacity: 1; }
     .swimlane { margin-bottom: 18px; }
     .swimlane.no-header { margin-bottom: 0; }
     .swim-header {
@@ -278,6 +301,12 @@ export class TasksComponent {
   private readonly dialog = inject(MatDialog);
   private readonly snack = inject(MatSnackBar);
 
+  readonly groupOptions: { value: GroupMode; label: string; icon: string; color: string; activeBg: string; ring: string }[] = [
+    { value: 'none',     label: 'None',     icon: 'table_rows',     color: '#60A5FA', activeBg: 'rgba(96,165,250,0.13)',  ring: 'rgba(96,165,250,0.30)'  },
+    { value: 'assignee', label: 'Assignee', icon: 'person',         color: '#F472B6', activeBg: 'rgba(244,114,182,0.13)', ring: 'rgba(244,114,182,0.30)' },
+    { value: 'priority', label: 'Priority', icon: 'flag',           color: '#FB923C', activeBg: 'rgba(251,146,60,0.13)',  ring: 'rgba(251,146,60,0.30)'  },
+    { value: 'date',     label: 'Due date', icon: 'calendar_today', color: '#FBBF24', activeBg: 'rgba(251,191,36,0.13)',  ring: 'rgba(251,191,36,0.30)'  },
+  ];
   readonly groupMode = signal<GroupMode>('none');
   readonly statusColumns = STATUS_COLUMNS;
 
