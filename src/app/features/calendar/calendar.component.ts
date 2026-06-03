@@ -12,7 +12,7 @@ import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatSnackBar } from '@angular/material/snack-bar';
 import {
   addMonths, eachDayOfInterval, endOfMonth, endOfWeek, format,
-  isSameDay, isSameMonth, startOfMonth, startOfWeek, subMonths,
+  isAfter, isSameDay, isSameMonth, startOfDay, startOfMonth, startOfWeek, subMonths,
 } from 'date-fns';
 import { v4 as uuid } from 'uuid';
 import { WorkspaceController } from '../../core/state/workspace-controller.service';
@@ -100,7 +100,7 @@ interface CalendarDay {
           @for (e of events(); track e.id) {
             <mat-card (click)="onCardClick(e)" class="ev-card">
               <div class="ev-row">
-                <div class="date" [style.borderLeft]="'4px solid ' + colorFor(e.type)">
+                <div class="date" [style.border-left]="'4px solid ' + colorFor(e.type)">
                   <div class="d">{{ e.startAt | date:'d' }}</div>
                   <div class="m">{{ e.startAt | date:'MMM' }}</div>
                 </div>
@@ -268,7 +268,12 @@ export class CalendarComponent {
     notes: [''],
   });
 
-  events = computed(() => [...(this.wsc.workspace()?.events ?? [])].sort((a, b) => a.startAt.getTime() - b.startAt.getTime()));
+  events = computed(() => {
+    const today = startOfDay(new Date());
+    return [...(this.wsc.workspace()?.events ?? [])]
+      .filter(e => isSameDay(e.startAt, today) || isAfter(e.startAt, today))
+      .sort((a, b) => a.startAt.getTime() - b.startAt.getTime());
+  });
 
   monthGrid = computed<CalendarDay[]>(() => {
     const month = this.currentMonth();

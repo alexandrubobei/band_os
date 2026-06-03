@@ -12,7 +12,6 @@ import { MatMenuModule } from '@angular/material/menu';
 import { MatSnackBar } from '@angular/material/snack-bar';
 import { v4 as uuid } from 'uuid';
 import { WorkspaceController } from '../../core/state/workspace-controller.service';
-import { AuthController } from '../../core/state/auth-controller.service';
 import { ScreenHeaderComponent } from '../../shared/components/screen-header.component';
 import { BandAvatarComponent } from '../../shared/components/band-avatar.component';
 import * as M from '../../core/models/models';
@@ -98,14 +97,16 @@ export class InviteForm {
                 <div class="m-meta">{{ m.email }}</div>
               </div>
               <span class="bandos-pill">{{ roleLabel(m.role) }}</span>
-              @if (canManage() && m.userId !== ws()?.currentUserId) {
-                <button mat-icon-button [matMenuTriggerFor]="menu"><mat-icon>more_vert</mat-icon></button>
-                <mat-menu #menu>
-                  @for (r of roles; track r) {
-                    <button mat-menu-item (click)="changeRole(m.userId, r)">Set as {{ roleLabel(r) }}</button>
-                  }
-                </mat-menu>
-              }
+              <div style="width:40px;flex-shrink:0;">
+                @if (canManage() && m.userId !== ws()?.currentUserId) {
+                  <button mat-icon-button [matMenuTriggerFor]="menu"><mat-icon>more_vert</mat-icon></button>
+                  <mat-menu #menu>
+                    @for (r of roles; track r) {
+                      <button mat-menu-item (click)="changeRole(m.userId, r)">Set as {{ roleLabel(r) }}</button>
+                    }
+                  </mat-menu>
+                }
+              </div>
             </div>
           }
         </div>
@@ -191,7 +192,6 @@ export class InviteForm {
 })
 export class BandComponent {
   private readonly wsc = inject(WorkspaceController);
-  private readonly auth = inject(AuthController);
   private readonly snack = inject(MatSnackBar);
   private readonly router = inject(Router);
 
