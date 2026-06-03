@@ -1,4 +1,4 @@
-import { Component, computed, inject, signal } from '@angular/core';
+import { Component, computed, HostListener, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { MatButtonModule } from '@angular/material/button';
@@ -10,7 +10,6 @@ import { MatSelectModule } from '@angular/material/select';
 import { MatProgressBarModule } from '@angular/material/progress-bar';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatSnackBar } from '@angular/material/snack-bar';
-import { MatDialog, MatDialogModule, MatDialogRef, MAT_DIALOG_DATA } from '@angular/material/dialog';
 import {
   addMonths, eachDayOfInterval, endOfMonth, endOfWeek, format,
   isSameDay, isSameMonth, startOfMonth, startOfWeek, subMonths,
@@ -36,67 +35,22 @@ interface CalendarDay {
   events: M.BandEvent[];
 }
 
-interface EventEditorData { event?: M.BandEvent; seedStartAt?: Date }
-
-@Component({
-  selector: 'event-editor-dialog',
-  standalone: true,
-  imports: [CommonModule, ReactiveFormsModule, MatButtonModule, MatFormFieldModule, MatInputModule, MatSelectModule, MatDialogModule],
-  template: `
-    <h2 mat-dialog-title>{{ existing ? 'Edit event' : 'New event' }}</h2>
-    <form mat-dialog-content [formGroup]="form" class="bandos-stack" style="min-width:420px;">
-      <mat-form-field appearance="outline"><mat-label>Title</mat-label><input matInput formControlName="title" /></mat-form-field>
-      <mat-form-field appearance="outline">
-        <mat-label>Type</mat-label>
-        <mat-select formControlName="type">
-          @for (t of types; track t) { <mat-option [value]="t">{{ typeLabel(t) }}</mat-option> }
-        </mat-select>
-      </mat-form-field>
-      <mat-form-field appearance="outline"><mat-label>Start</mat-label><input matInput type="datetime-local" formControlName="startAt" /></mat-form-field>
-      <mat-form-field appearance="outline"><mat-label>Location</mat-label><input matInput formControlName="location" /></mat-form-field>
-      <mat-form-field appearance="outline"><mat-label>Notes</mat-label><textarea matInput rows="3" formControlName="notes"></textarea></mat-form-field>
-    </form>
-    <div mat-dialog-actions align="end">
-      @if (existing) { <button mat-button color="warn" style="margin-right: auto;" (click)="remove()">Delete</button> }
-      <button mat-button (click)="ref.close()">Cancel</button>
-      <button mat-flat-button color="primary" (click)="save()">Save</button>
-    </div>
-  `,
-})
-export class EventEditorDialog {
-  ref = inject(MatDialogRef<EventEditorDialog>);
-  private readonly fb = inject(FormBuilder);
-  data: EventEditorData = inject<EventEditorData>(MAT_DIALOG_DATA, { optional: true }) ?? {};
-  existing = !!this.data.event;
-  types = Object.values(M.BandEventType);
-  typeLabel(t: M.BandEventType) { return M.BandEventTypeLabel[t]; }
-
-  form = this.fb.nonNullable.group({
-    title: [this.data.event?.title ?? '', [Validators.required]],
-    type: [this.data.event?.type ?? M.BandEventType.rehearsal],
-    startAt: [this.toInputDateTime(this.data.event?.startAt ?? this.data.seedStartAt ?? new Date()), [Validators.required]],
-    location: [this.data.event?.location ?? ''],
-    notes: [this.data.event?.notes ?? ''],
-  });
-  toInputDateTime(d: Date) {
-    const pad = (n: number) => String(n).padStart(2, '0');
-    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
-  }
-  save() {
-    if (this.form.invalid) { this.form.markAllAsTouched(); return; }
-    const v = this.form.getRawValue();
-    const event: M.BandEvent = this.data.event
-      ? { ...this.data.event, ...v, startAt: new Date(v.startAt) }
-      : { id: uuid(), ...v, startAt: new Date(v.startAt), checklist: [] };
-    this.ref.close({ action: 'save', event });
-  }
-  remove() { this.ref.close({ action: 'delete' }); }
-}
-
 @Component({
   selector: 'calendar-screen',
   standalone: true,
-  imports: [CommonModule, MatButtonModule, MatCardModule, MatIconModule, MatProgressBarModule, MatProgressSpinnerModule, ScreenHeaderComponent, MatDialogModule],
+  imports: [
+    CommonModule,
+    ReactiveFormsModule,
+    MatButtonModule,
+    MatCardModule,
+    MatIconModule,
+    MatFormFieldModule,
+    MatInputModule,
+    MatSelectModule,
+    MatProgressBarModule,
+    MatProgressSpinnerModule,
+    ScreenHeaderComponent,
+  ],
   template: `
     <div class="bandos-page">
       <screen-header title="Calendar" subtitle="Rehearsals, shows, recordings, and more."></screen-header>
@@ -168,6 +122,42 @@ export class EventEditorDialog {
           }
         </div>
       }
+
+      <!-- Backdrop -->
+      <div class="panel-backdrop" [class.visible]="panelOpen()" (click)="closePanel()"></div>
+      <!-- Side panel -->
+      <aside class="editor-panel" [class.open]="panelOpen()">
+        <div class="panel-header">
+          <div class="panel-header-text">
+            <span class="panel-label">{{ panelItem() ? 'Edit event' : 'New event' }}</span>
+            @if (panelItem()?.title) {
+              <span class="panel-title">{{ panelItem()!.title }}</span>
+            }
+          </div>
+          <button mat-icon-button (click)="closePanel()"><mat-icon>close</mat-icon></button>
+        </div>
+        <div class="panel-body">
+          @if (panelOpen()) {
+            <form [formGroup]="form" class="bandos-stack">
+              <mat-form-field appearance="outline"><mat-label>Title</mat-label><input matInput formControlName="title" /></mat-form-field>
+              <mat-form-field appearance="outline">
+                <mat-label>Type</mat-label>
+                <mat-select formControlName="type">
+                  @for (t of eventTypes; track t) { <mat-option [value]="t">{{ typeLabel(t) }}</mat-option> }
+                </mat-select>
+              </mat-form-field>
+              <mat-form-field appearance="outline"><mat-label>Start</mat-label><input matInput type="datetime-local" formControlName="startAt" /></mat-form-field>
+              <mat-form-field appearance="outline"><mat-label>Location</mat-label><input matInput formControlName="location" /></mat-form-field>
+              <mat-form-field appearance="outline"><mat-label>Notes</mat-label><textarea matInput rows="3" formControlName="notes"></textarea></mat-form-field>
+              <div class="panel-actions">
+                @if (panelItem()) { <button mat-button color="warn" style="margin-right: auto;" (click)="panelDelete()">Delete</button> }
+                <button mat-button (click)="closePanel()">Cancel</button>
+                <button mat-flat-button color="primary" (click)="panelSave()">Save</button>
+              </div>
+            </form>
+          }
+        </div>
+      </aside>
     </div>
   `,
   styles: [`
@@ -220,6 +210,19 @@ export class EventEditorDialog {
     .cal-chip-title { overflow: hidden; text-overflow: ellipsis; }
     .cal-more { font-size: 10px; color: #9D9DA7; padding: 0 4px; }
 
+    .panel-actions { display: flex; justify-content: flex-end; gap: 8px; align-items: center; margin-top: 8px; }
+
+    /* ── Side panel ── */
+    .panel-backdrop { position: fixed; inset: 0; z-index: 200; background: transparent; pointer-events: none; transition: background 0.25s ease; }
+    .panel-backdrop.visible { background: rgba(0,0,0,0.55); pointer-events: all; }
+    .editor-panel { position: fixed; top: 0; right: 0; bottom: 0; width: 460px; z-index: 201; background: #17171B; border-left: 1px solid #2A2A31; display: flex; flex-direction: column; transform: translateX(100%); transition: transform 0.3s cubic-bezier(0.4,0,0.2,1); box-shadow: -12px 0 40px rgba(0,0,0,0.6); }
+    .editor-panel.open { transform: translateX(0); }
+    .panel-header { display: flex; align-items: center; justify-content: space-between; padding: 16px 20px 14px; border-bottom: 1px solid #2A2A31; flex-shrink: 0; }
+    .panel-header-text { display: flex; flex-direction: column; gap: 2px; min-width: 0; flex: 1; }
+    .panel-label { font-size: 11px; font-weight: 700; color: #9D9DA7; text-transform: uppercase; letter-spacing: 0.06em; }
+    .panel-title { font-size: 17px; font-weight: 800; color: #F6F1E8; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .panel-body { flex: 1; overflow-y: auto; padding: 20px; }
+
     @media (max-width: 760px) {
       .cal-card { padding: 8px; }
       .cal-cell { min-height: 56px; padding: 3px; gap: 2px; }
@@ -230,13 +233,14 @@ export class EventEditorDialog {
       .cal-weekday { font-size: 9px; padding: 2px; }
       .cal-more { font-size: 9px; padding: 0 2px; }
       .today-btn { display: none; }
+      .editor-panel { width: 100%; }
     }
   `],
 })
 export class CalendarComponent {
   private readonly wsc = inject(WorkspaceController);
-  private readonly dialog = inject(MatDialog);
   private readonly snack = inject(MatSnackBar);
+  private readonly fb = inject(FormBuilder);
 
   /** Counter of in-flight create/update/delete ops. Drives the page-level progress bar. */
   private readonly pendingOps = signal(0);
@@ -248,6 +252,21 @@ export class CalendarComponent {
 
   currentMonth = signal(new Date());
   weekdayLabels = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+  eventTypes = Object.values(M.BandEventType);
+
+  // Panel state
+  panelOpen = signal(false);
+  panelItem = signal<M.BandEvent | null>(null);
+  /** Seed date used when opening the panel for a new event from a calendar cell click. */
+  private panelSeedDate = signal<Date | null>(null);
+
+  form = this.fb.nonNullable.group({
+    title: ['', [Validators.required]],
+    type: [M.BandEventType.rehearsal as M.BandEventType],
+    startAt: ['', [Validators.required]],
+    location: [''],
+    notes: [''],
+  });
 
   events = computed(() => [...(this.wsc.workspace()?.events ?? [])].sort((a, b) => a.startAt.getTime() - b.startAt.getTime()));
 
@@ -274,41 +293,72 @@ export class CalendarComponent {
   nextMonth() { this.currentMonth.set(addMonths(this.currentMonth(), 1)); }
   goToday() { this.currentMonth.set(new Date()); }
 
+  openPanel(item: M.BandEvent | null, seedDate?: Date) {
+    this.panelItem.set(item);
+    this.panelSeedDate.set(seedDate ?? null);
+    const startDate = item?.startAt ?? seedDate ?? new Date();
+    this.form.reset({
+      title: item?.title ?? '',
+      type: item?.type ?? M.BandEventType.rehearsal,
+      startAt: this.toInputDateTime(startDate),
+      location: item?.location ?? '',
+      notes: item?.notes ?? '',
+    });
+    this.panelOpen.set(true);
+  }
+
+  closePanel() { this.panelOpen.set(false); }
+
+  @HostListener('document:keydown.escape')
+  onEscape() { if (this.panelOpen()) this.closePanel(); }
+
   onChipClick(e: M.BandEvent) {
     if (this.isSavingEvent(e.id)) return;
-    this.edit(e);
+    this.openPanel(e);
   }
 
   onCardClick(e: M.BandEvent) {
     if (this.isSavingEvent(e.id)) return;
-    this.edit(e);
+    this.openPanel(e);
   }
 
   newEvent() {
     if (this.isBusy()) return;
-    const ref = this.dialog.open(EventEditorDialog, { data: {} });
-    ref.afterClosed().subscribe(async r => {
-      if (r?.action === 'save') await this.runOp(null, 'Event created.', () => this.wsc.saveEvent(r.event));
-    });
+    this.openPanel(null);
   }
 
   newEventOn(date: Date) {
     if (this.isBusy()) return;
     const seed = new Date(date);
     seed.setHours(19, 0, 0, 0);
-    const ref = this.dialog.open(EventEditorDialog, { data: { seedStartAt: seed } });
-    ref.afterClosed().subscribe(async r => {
-      if (r?.action === 'save') await this.runOp(null, 'Event created.', () => this.wsc.saveEvent(r.event));
-    });
+    this.openPanel(null, seed);
   }
 
-  edit(e: M.BandEvent) {
-    if (this.isSavingEvent(e.id)) return;
-    const ref = this.dialog.open(EventEditorDialog, { data: { event: e } });
-    ref.afterClosed().subscribe(async r => {
-      if (r?.action === 'save') await this.runOp(e.id, 'Event updated.', () => this.wsc.saveEvent(r.event));
-      else if (r?.action === 'delete') await this.runOp(e.id, 'Event deleted.', () => this.wsc.deleteEvent(e.id));
-    });
+  panelSave() {
+    if (this.form.invalid) { this.form.markAllAsTouched(); return; }
+    const v = this.form.getRawValue();
+    const existing = this.panelItem();
+    const event: M.BandEvent = existing
+      ? { ...existing, ...v, startAt: new Date(v.startAt) }
+      : { id: uuid(), ...v, startAt: new Date(v.startAt), checklist: [] };
+    this.closePanel();
+    if (existing) {
+      this.runOp(existing.id, 'Event updated.', () => this.wsc.saveEvent(event));
+    } else {
+      this.runOp(null, 'Event created.', () => this.wsc.saveEvent(event));
+    }
+  }
+
+  panelDelete() {
+    const existing = this.panelItem();
+    if (!existing) return;
+    this.closePanel();
+    this.runOp(existing.id, 'Event deleted.', () => this.wsc.deleteEvent(existing.id));
+  }
+
+  private toInputDateTime(d: Date): string {
+    const pad = (n: number) => String(n).padStart(2, '0');
+    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
   }
 
   /**

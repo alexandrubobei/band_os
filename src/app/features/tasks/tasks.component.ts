@@ -1,4 +1,4 @@
-import { Component, computed, inject, signal } from '@angular/core';
+import { Component, computed, inject, signal, Input, Output, EventEmitter, OnChanges, SimpleChanges, HostListener } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { MatButtonModule } from '@angular/material/button';
@@ -9,8 +9,8 @@ import { MatInputModule } from '@angular/material/input';
 import { MatSelectModule } from '@angular/material/select';
 import { MatIconModule } from '@angular/material/icon';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
+import { MatTooltipModule } from '@angular/material/tooltip';
 import { MatSnackBar } from '@angular/material/snack-bar';
-import { MatDialog, MatDialogModule, MatDialogRef, MAT_DIALOG_DATA } from '@angular/material/dialog';
 import { CdkDragDrop, DragDropModule } from '@angular/cdk/drag-drop';
 import { endOfWeek, isAfter, isBefore, isSameDay, startOfDay } from 'date-fns';
 import { v4 as uuid } from 'uuid';
@@ -18,15 +18,12 @@ import { WorkspaceController } from '../../core/state/workspace-controller.servi
 import { ScreenHeaderComponent } from '../../shared/components/screen-header.component';
 import * as M from '../../core/models/models';
 
-interface TaskEditorData { task?: M.BandTask; songs: M.Song[]; members: M.BandMember[]; currentUserId: string }
-
 @Component({
-  selector: 'task-editor-dialog',
+  selector: 'task-editor-form',
   standalone: true,
-  imports: [CommonModule, ReactiveFormsModule, MatButtonModule, MatFormFieldModule, MatInputModule, MatSelectModule, MatDatepickerModule, MatDialogModule],
+  imports: [CommonModule, ReactiveFormsModule, MatButtonModule, MatFormFieldModule, MatInputModule, MatSelectModule, MatDatepickerModule, MatIconModule],
   template: `
-    <h2 mat-dialog-title>{{ existing ? 'Edit task' : 'New task' }}</h2>
-    <form mat-dialog-content [formGroup]="form" class="bandos-stack" style="min-width:420px;">
+    <form [formGroup]="form" class="bandos-stack">
       <mat-form-field appearance="outline"><mat-label>Title</mat-label><input matInput formControlName="title" /></mat-form-field>
       <mat-form-field appearance="outline"><mat-label>Description</mat-label><textarea matInput rows="3" formControlName="description"></textarea></mat-form-field>
       <mat-form-field appearance="outline">
@@ -49,7 +46,7 @@ interface TaskEditorData { task?: M.BandTask; songs: M.Song[]; members: M.BandMe
         <mat-label>Song</mat-label>
         <mat-select formControlName="songId">
           <mat-option [value]="null">None</mat-option>
-          @for (s of data.songs; track s.id) { <mat-option [value]="s.id">{{ s.title }}</mat-option> }
+          @for (s of songs; track s.id) { <mat-option [value]="s.id">{{ s.title }}</mat-option> }
         </mat-select>
       </mat-form-field>
       <div class="bandos-row">
@@ -67,42 +64,65 @@ interface TaskEditorData { task?: M.BandTask; songs: M.Song[]; members: M.BandMe
         </mat-form-field>
       </div>
     </form>
-    <div mat-dialog-actions align="end">
-      @if (existing) { <button mat-button color="warn" style="margin-right: auto;" (click)="remove()">Delete</button> }
-      <button mat-button (click)="ref.close()">Cancel</button>
+    <div class="form-actions">
+      @if (task) { <button mat-button color="warn" style="margin-right: auto;" (click)="remove()">Delete</button> }
+      <button mat-button (click)="cancel.emit()">Cancel</button>
       <button mat-flat-button color="primary" (click)="save()">Save</button>
     </div>
   `,
+  styles: [`
+    .form-actions { display: flex; align-items: center; justify-content: flex-end; gap: 8px; padding-top: 12px; }
+  `],
 })
-export class TaskEditorDialog {
-  ref = inject(MatDialogRef<TaskEditorDialog>);
+export class TaskEditorForm implements OnChanges {
+  @Input() task: M.BandTask | null = null;
+  @Input() songs: M.Song[] = [];
+  @Input() members: M.BandMember[] = [];
+  @Input() currentUserId: string = '';
+  @Output() done = new EventEmitter<{ action: 'save'; task: M.BandTask } | { action: 'delete'; taskId: string }>();
+  @Output() cancel = new EventEmitter<void>();
+
   private readonly fb = inject(FormBuilder);
-  data: TaskEditorData = inject<TaskEditorData>(MAT_DIALOG_DATA, { optional: true }) ?? { songs: [], members: [], currentUserId: '' };
-  existing = !!this.data.task;
+
   statuses = Object.values(M.BandTaskStatus);
   priorities = Object.values(M.BandTaskPriority);
   statusLabel(s: M.BandTaskStatus) { return M.BandTaskStatusLabel[s]; }
   priorityLabel(p: M.BandTaskPriority) { return M.BandTaskPriorityLabel[p]; }
 
   form = this.fb.group({
-    title: [this.data.task?.title ?? '', [Validators.required]],
-    description: [this.data.task?.description ?? ''],
-    assigneeUid: [this.data.task?.assigneeUid ?? null as string | null],
-    dueDate: [this.data.task?.dueDate ?? null as Date | null],
-    songId: [this.data.task?.songId ?? null as string | null],
-    status: [this.data.task?.status ?? M.BandTaskStatus.todo],
-    priority: [this.data.task?.priority ?? M.BandTaskPriority.medium],
+    title: ['' as string, [Validators.required]],
+    description: ['' as string],
+    assigneeUid: [null as string | null],
+    dueDate: [null as Date | null],
+    songId: [null as string | null],
+    status: [M.BandTaskStatus.todo as M.BandTaskStatus],
+    priority: [M.BandTaskPriority.medium as M.BandTaskPriority],
   });
 
   /** Workspace members, plus the task's current assignee if they're no longer a member (preserves old data). */
   assigneeOptions = computed<M.BandMember[]>(() => {
-    const members = this.data.members;
-    const t = this.data.task;
+    const members = this.members;
+    const t = this.task;
     if (t?.assigneeUid && t.assigneeDisplayName && !members.some(m => m.userId === t.assigneeUid)) {
       return [{ userId: t.assigneeUid, displayName: `${t.assigneeDisplayName} (removed)`, role: M.BandRole.member }, ...members];
     }
     return members;
   });
+
+  ngOnChanges(changes: SimpleChanges): void {
+    if (changes['task']) {
+      const t = this.task;
+      this.form.reset({
+        title: t?.title ?? '',
+        description: t?.description ?? '',
+        assigneeUid: t?.assigneeUid ?? null,
+        dueDate: t?.dueDate ?? null,
+        songId: t?.songId ?? null,
+        status: t?.status ?? M.BandTaskStatus.todo,
+        priority: t?.priority ?? M.BandTaskPriority.medium,
+      });
+    }
+  }
 
   save() {
     if (this.form.invalid) { this.form.markAllAsTouched(); return; }
@@ -113,7 +133,7 @@ export class TaskEditorDialog {
     const assigneeUid = v.assigneeUid || null;
     const assigneeDisplayName = member
       ? member.displayName.replace(/ \(removed\)$/, '')
-      : (assigneeUid ? this.data.task?.assigneeDisplayName ?? '' : '');
+      : (assigneeUid ? this.task?.assigneeDisplayName ?? '' : '');
     const base = {
       title: (v.title ?? '').trim(),
       description: v.description ?? '',
@@ -125,13 +145,14 @@ export class TaskEditorDialog {
       songId: v.songId ?? null,
       updatedAt: new Date(),
     };
-    const task: M.BandTask = this.data.task
-      ? { ...this.data.task, ...base }
+    const task: M.BandTask = this.task
+      ? { ...this.task, ...base }
       // New task: stamp createdByUid with the current user (Firestore rules require this on create).
-      : { id: uuid(), ...base, createdByUid: this.data.currentUserId || null };
-    this.ref.close({ action: 'save', task });
+      : { id: uuid(), ...base, createdByUid: this.currentUserId || null };
+    this.done.emit({ action: 'save', task });
   }
-  remove() { this.ref.close({ action: 'delete' }); }
+
+  remove() { this.done.emit({ action: 'delete', taskId: this.task!.id }); }
 }
 
 type GroupMode = 'none' | 'assignee' | 'priority' | 'date';
@@ -160,12 +181,12 @@ const PRIORITY_LANES: TaskGroup[] = [
 @Component({
   selector: 'tasks-screen',
   standalone: true,
-  imports: [CommonModule, MatButtonModule, MatCardModule, MatIconModule, MatProgressSpinnerModule, ScreenHeaderComponent, MatDialogModule, DragDropModule],
+  imports: [CommonModule, MatButtonModule, MatCardModule, MatIconModule, MatProgressSpinnerModule, MatTooltipModule, ScreenHeaderComponent, DragDropModule, TaskEditorForm],
   template: `
     <div class="bandos-page">
       <screen-header title="Tasks" subtitle="Plan, assign, and track band to-dos."></screen-header>
       <div class="bandos-toolbar tasks-toolbar">
-        <button mat-flat-button color="primary" (click)="newTask()">+ New task</button>
+        <button mat-flat-button color="primary" (click)="openPanel(null)">+ New task</button>
         <div class="group-toggle-wrap">
           <span class="group-label">Group by</span>
           <div class="segment-control">
@@ -177,6 +198,8 @@ const PRIORITY_LANES: TaskGroup[] = [
                 [style.background]="groupMode() === opt.value ? opt.activeBg : null"
                 [style.box-shadow]="groupMode() === opt.value ? ('0 0 0 1px ' + opt.ring + ', 0 2px 8px rgba(0,0,0,.4)') : null"
                 [style.color]="groupMode() === opt.value ? opt.color : null"
+                [matTooltip]="opt.label"
+                matTooltipPosition="below"
                 (click)="groupMode.set(opt.value)">
                 <mat-icon>{{ opt.icon }}</mat-icon><span>{{ opt.label }}</span>
               </button>
@@ -230,12 +253,39 @@ const PRIORITY_LANES: TaskGroup[] = [
           </div>
         </div>
       }
+
+      <!-- Backdrop -->
+      <div class="panel-backdrop" [class.visible]="panelOpen()" (click)="closePanel()"></div>
+      <!-- Side panel -->
+      <aside class="editor-panel" [class.open]="panelOpen()">
+        <div class="panel-header">
+          <div class="panel-header-text">
+            <span class="panel-label">{{ panelItem() ? 'Edit task' : 'New task' }}</span>
+            @if (panelItem()?.title) {
+              <span class="panel-title">{{ panelItem()!.title }}</span>
+            }
+          </div>
+          <button mat-icon-button (click)="closePanel()"><mat-icon>close</mat-icon></button>
+        </div>
+        <div class="panel-body">
+          @if (panelOpen()) {
+            <task-editor-form
+              [task]="panelItem()"
+              [songs]="songs()"
+              [members]="members()"
+              [currentUserId]="currentUserId()"
+              (done)="onFormDone($event)"
+              (cancel)="closePanel()" />
+          }
+        </div>
+      </aside>
     </div>
   `,
   styles: [`
     .tasks-toolbar { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
     .group-toggle-wrap { display: flex; align-items: center; gap: 10px; margin-left: auto; }
     .group-label { color: #9D9DA7; font-size: 12px; text-transform: uppercase; letter-spacing: 0.04em; font-weight: 700; }
+    @media (max-width: 760px) { .group-label { display: none; } }
     .segment-control {
       display: flex; align-items: center;
       background: #17171B; border: 1px solid #2A2A31; border-radius: 10px;
@@ -253,9 +303,16 @@ const PRIORITY_LANES: TaskGroup[] = [
       color: var(--seg-color); opacity: 0.45;
       transition: opacity 0.15s;
     }
+    .segment-btn span { white-space: nowrap; }
     .segment-btn:hover:not(.active) { background: #22222A; color: #E6E6EC; }
     .segment-btn:hover:not(.active) mat-icon { opacity: 0.75; }
     .segment-btn.active mat-icon { opacity: 1; }
+
+    @media (max-width: 760px) {
+      .segment-btn { padding: 6px 8px; gap: 0; }
+      .segment-btn span { display: none; }
+      .segment-control { padding: 2px; gap: 1px; }
+    }
     .swimlane { margin-bottom: 18px; }
     .swimlane.no-header { margin-bottom: 0; }
     .swim-header {
@@ -294,12 +351,26 @@ const PRIORITY_LANES: TaskGroup[] = [
     .col-list.cdk-drop-list-dragging mat-card:not(.cdk-drag-placeholder) { transition: transform 200ms cubic-bezier(0,0,0.2,1); }
 
     @media (max-width: 760px) { .board { grid-template-columns: 1fr; } }
+
+    /* ── Side panel ── */
+    .panel-backdrop { position: fixed; inset: 0; z-index: 200; background: transparent; pointer-events: none; transition: background 0.25s ease; }
+    .panel-backdrop.visible { background: rgba(0,0,0,0.55); pointer-events: all; }
+    .editor-panel { position: fixed; top: 0; right: 0; bottom: 0; width: 460px; z-index: 201; background: #17171B; border-left: 1px solid #2A2A31; display: flex; flex-direction: column; transform: translateX(100%); transition: transform 0.3s cubic-bezier(0.4,0,0.2,1); box-shadow: -12px 0 40px rgba(0,0,0,0.6); }
+    .editor-panel.open { transform: translateX(0); }
+    .panel-header { display: flex; align-items: center; justify-content: space-between; padding: 16px 20px 14px; border-bottom: 1px solid #2A2A31; flex-shrink: 0; }
+    .panel-header-text { display: flex; flex-direction: column; gap: 2px; min-width: 0; flex: 1; }
+    .panel-label { font-size: 11px; font-weight: 700; color: #9D9DA7; text-transform: uppercase; letter-spacing: 0.06em; }
+    .panel-title { font-size: 17px; font-weight: 800; color: #F6F1E8; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .panel-body { flex: 1; overflow-y: auto; padding: 20px; }
+    @media (max-width: 760px) { .editor-panel { width: 100%; } }
   `],
 })
 export class TasksComponent {
   private readonly wsc = inject(WorkspaceController);
-  private readonly dialog = inject(MatDialog);
   private readonly snack = inject(MatSnackBar);
+
+  readonly panelOpen = signal(false);
+  readonly panelItem = signal<M.BandTask | null>(null);
 
   readonly groupOptions: { value: GroupMode; label: string; icon: string; color: string; activeBg: string; ring: string }[] = [
     { value: 'none',     label: 'None',     icon: 'table_rows',     color: '#60A5FA', activeBg: 'rgba(96,165,250,0.13)',  ring: 'rgba(96,165,250,0.30)'  },
@@ -336,6 +407,12 @@ export class TasksComponent {
     return this.buildSwimlanes(mode, this.tasks());
   });
 
+  openPanel(item: M.BandTask | null) { this.panelItem.set(item); this.panelOpen.set(true); }
+  closePanel() { this.panelOpen.set(false); }
+
+  @HostListener('document:keydown.escape')
+  onEscape() { if (this.panelOpen()) this.closePanel(); }
+
   tasksFor(swimlaneKey: string, status: M.BandTaskStatus): M.BandTask[] {
     const mode = this.groupMode();
     return this.tasks().filter(t => {
@@ -359,12 +436,36 @@ export class TasksComponent {
 
   onCardClick(t: M.BandTask) {
     if (this.isSaving(t.id)) return;
-    this.edit(t);
+    this.openPanel(t);
   }
 
   /** Lock body scroll while dragging to prevent the CDK preview from triggering a spurious scrollbar. */
   onDragStarted() { document.body.classList.add('bandos-dragging'); }
   onDragEnded()   { document.body.classList.remove('bandos-dragging'); }
+
+  async onFormDone(event: { action: 'save'; task: M.BandTask } | { action: 'delete'; taskId: string }) {
+    if (event.action === 'save') {
+      const isNew = !this.panelItem();
+      this.closePanel();
+      try {
+        await this.wsc.saveTask(event.task);
+        this.snack.open(isNew ? 'Task created.' : 'Task saved.', 'OK', { duration: 1800 });
+      } catch (err: any) {
+        console.error('saveTask failed', err);
+        this.snack.open(err?.message ?? 'Could not save task.', 'OK', { duration: 4000 });
+      }
+    } else if (event.action === 'delete') {
+      const taskId = event.taskId;
+      this.closePanel();
+      try {
+        await this.wsc.deleteTask(taskId);
+        this.snack.open('Task deleted.', 'OK', { duration: 1800 });
+      } catch (err: any) {
+        console.error('task action failed', err);
+        this.snack.open(err?.message ?? 'Action failed.', 'OK', { duration: 4000 });
+      }
+    }
+  }
 
   // ----- Swimlane helpers -----
 
@@ -403,37 +504,6 @@ export class TasksComponent {
     if (isSameDay(due, today)) return 'today';
     const weekEnd = endOfWeek(today, { weekStartsOn: 1 });
     return isAfter(due, weekEnd) ? 'later' : 'thisWeek';
-  }
-
-  newTask() {
-    const ref = this.dialog.open(TaskEditorDialog, { data: { songs: this.songs(), members: this.members(), currentUserId: this.currentUserId() } });
-    ref.afterClosed().subscribe(async r => {
-      if (r?.action !== 'save') return;
-      try {
-        await this.wsc.saveTask(r.task);
-        this.snack.open('Task created.', 'OK', { duration: 1800 });
-      } catch (err: any) {
-        console.error('saveTask failed', err);
-        this.snack.open(err?.message ?? 'Could not save task.', 'OK', { duration: 4000 });
-      }
-    });
-  }
-  edit(t: M.BandTask) {
-    const ref = this.dialog.open(TaskEditorDialog, { data: { task: t, songs: this.songs(), members: this.members(), currentUserId: this.currentUserId() } });
-    ref.afterClosed().subscribe(async r => {
-      try {
-        if (r?.action === 'save') {
-          await this.wsc.saveTask(r.task);
-          this.snack.open('Task saved.', 'OK', { duration: 1800 });
-        } else if (r?.action === 'delete') {
-          await this.wsc.deleteTask(t.id);
-          this.snack.open('Task deleted.', 'OK', { duration: 1800 });
-        }
-      } catch (err: any) {
-        console.error('task action failed', err);
-        this.snack.open(err?.message ?? 'Action failed.', 'OK', { duration: 4000 });
-      }
-    });
   }
 
   async onDrop(event: CdkDragDrop<M.BandTaskStatus>) {

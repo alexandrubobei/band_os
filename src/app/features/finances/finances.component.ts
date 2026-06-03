@@ -1,4 +1,4 @@
-import { Component, computed, inject } from '@angular/core';
+import { Component, computed, inject, signal, HostListener } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { MatButtonModule } from '@angular/material/button';
@@ -7,19 +7,18 @@ import { MatTabsModule } from '@angular/material/tabs';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
 import { MatSelectModule } from '@angular/material/select';
-import { MatDialog, MatDialogModule, MatDialogRef, MAT_DIALOG_DATA } from '@angular/material/dialog';
+import { MatIconModule } from '@angular/material/icon';
 import { v4 as uuid } from 'uuid';
 import { WorkspaceController } from '../../core/state/workspace-controller.service';
 import { ScreenHeaderComponent } from '../../shared/components/screen-header.component';
 import * as M from '../../core/models/models';
 
 @Component({
-  selector: 'expense-editor-dialog',
+  selector: 'expense-editor-form',
   standalone: true,
-  imports: [CommonModule, ReactiveFormsModule, MatButtonModule, MatFormFieldModule, MatInputModule, MatSelectModule, MatDialogModule],
+  imports: [CommonModule, ReactiveFormsModule, MatButtonModule, MatFormFieldModule, MatInputModule, MatSelectModule],
   template: `
-    <h2 mat-dialog-title>{{ existing ? 'Edit expense' : 'New expense' }}</h2>
-    <form mat-dialog-content [formGroup]="form" class="bandos-stack" style="min-width:420px;">
+    <form [formGroup]="form" class="bandos-stack">
       <mat-form-field appearance="outline"><mat-label>Title</mat-label><input matInput formControlName="title" /></mat-form-field>
       <div class="bandos-row">
         <mat-form-field appearance="outline" style="flex:1;"><mat-label>Amount</mat-label><input matInput type="number" formControlName="amount" /></mat-form-field>
@@ -34,45 +33,67 @@ import * as M from '../../core/models/models';
       <mat-form-field appearance="outline"><mat-label>Paid by</mat-label><input matInput formControlName="paidBy" /></mat-form-field>
       <mat-form-field appearance="outline"><mat-label>Notes</mat-label><textarea matInput rows="2" formControlName="notes"></textarea></mat-form-field>
     </form>
-    <div mat-dialog-actions align="end">
-      @if (existing) { <button mat-button color="warn" style="margin-right: auto;" (click)="ref.close({ action: 'delete' })">Delete</button> }
-      <button mat-button (click)="ref.close()">Cancel</button>
+    <div class="form-actions">
+      @if (existing) { <button mat-button color="warn" style="margin-right: auto;" (click)="delete()">Delete</button> }
       <button mat-flat-button color="primary" (click)="save()">Save</button>
     </div>
   `,
+  styles: [`
+    .form-actions { display: flex; justify-content: flex-end; align-items: center; margin-top: 24px; gap: 8px; }
+  `],
 })
-export class ExpenseEditorDialog {
-  ref = inject(MatDialogRef<ExpenseEditorDialog>);
+export class ExpenseEditorForm {
   private readonly fb = inject(FormBuilder);
-  data: { expense?: M.FinanceExpense } = inject<{ expense?: M.FinanceExpense }>(MAT_DIALOG_DATA, { optional: true }) ?? {};
-  existing = !!this.data.expense;
+
+  expense: M.FinanceExpense | null = null;
+  existing = false;
   categories = Object.values(M.FinanceExpenseCategory);
   catLabel(c: M.FinanceExpenseCategory) { return M.FinanceExpenseCategoryLabel[c]; }
+
   form = this.fb.nonNullable.group({
-    title: [this.data.expense?.title ?? '', [Validators.required]],
-    amount: [this.data.expense?.amount ?? 0, [Validators.required, Validators.min(0)]],
-    date: [(this.data.expense?.date ?? new Date()).toISOString().substring(0, 10)],
-    category: [this.data.expense?.category ?? M.FinanceExpenseCategory.other],
-    paidBy: [this.data.expense?.paidBy ?? ''],
-    notes: [this.data.expense?.notes ?? ''],
+    title: ['', [Validators.required]],
+    amount: [0, [Validators.required, Validators.min(0)]],
+    date: [new Date().toISOString().substring(0, 10)],
+    category: [M.FinanceExpenseCategory.other],
+    paidBy: [''],
+    notes: [''],
   });
+
+  onSave?: (result: { action: 'save'; expense: M.FinanceExpense } | { action: 'delete' }) => void;
+
+  init(expense: M.FinanceExpense | null) {
+    this.expense = expense;
+    this.existing = !!expense;
+    this.form.reset({
+      title: expense?.title ?? '',
+      amount: expense?.amount ?? 0,
+      date: (expense?.date ?? new Date()).toISOString().substring(0, 10),
+      category: expense?.category ?? M.FinanceExpenseCategory.other,
+      paidBy: expense?.paidBy ?? '',
+      notes: expense?.notes ?? '',
+    });
+  }
+
   save() {
     if (this.form.invalid) { this.form.markAllAsTouched(); return; }
     const v = this.form.getRawValue();
-    const expense: M.FinanceExpense = this.data.expense
-      ? { ...this.data.expense, ...v, amount: Number(v.amount), date: new Date(v.date) }
+    const expense: M.FinanceExpense = this.expense
+      ? { ...this.expense, ...v, amount: Number(v.amount), date: new Date(v.date) }
       : { id: uuid(), ...v, amount: Number(v.amount), date: new Date(v.date) };
-    this.ref.close({ action: 'save', expense });
+    this.onSave?.({ action: 'save', expense });
+  }
+
+  delete() {
+    this.onSave?.({ action: 'delete' });
   }
 }
 
 @Component({
-  selector: 'income-editor-dialog',
+  selector: 'income-editor-form',
   standalone: true,
-  imports: [CommonModule, ReactiveFormsModule, MatButtonModule, MatFormFieldModule, MatInputModule, MatSelectModule, MatDialogModule],
+  imports: [CommonModule, ReactiveFormsModule, MatButtonModule, MatFormFieldModule, MatInputModule, MatSelectModule],
   template: `
-    <h2 mat-dialog-title>{{ existing ? 'Edit income' : 'New income' }}</h2>
-    <form mat-dialog-content [formGroup]="form" class="bandos-stack" style="min-width:420px;">
+    <form [formGroup]="form" class="bandos-stack">
       <mat-form-field appearance="outline"><mat-label>Title</mat-label><input matInput formControlName="title" /></mat-form-field>
       <div class="bandos-row">
         <mat-form-field appearance="outline" style="flex:1;"><mat-label>Amount</mat-label><input matInput type="number" formControlName="amount" /></mat-form-field>
@@ -87,42 +108,65 @@ export class ExpenseEditorDialog {
       <mat-form-field appearance="outline"><mat-label>Received by</mat-label><input matInput formControlName="receivedBy" /></mat-form-field>
       <mat-form-field appearance="outline"><mat-label>Notes</mat-label><textarea matInput rows="2" formControlName="notes"></textarea></mat-form-field>
     </form>
-    <div mat-dialog-actions align="end">
-      @if (existing) { <button mat-button color="warn" style="margin-right: auto;" (click)="ref.close({ action: 'delete' })">Delete</button> }
-      <button mat-button (click)="ref.close()">Cancel</button>
+    <div class="form-actions">
+      @if (existing) { <button mat-button color="warn" style="margin-right: auto;" (click)="delete()">Delete</button> }
       <button mat-flat-button color="primary" (click)="save()">Save</button>
     </div>
   `,
+  styles: [`
+    .form-actions { display: flex; justify-content: flex-end; align-items: center; margin-top: 24px; gap: 8px; }
+  `],
 })
-export class IncomeEditorDialog {
-  ref = inject(MatDialogRef<IncomeEditorDialog>);
+export class IncomeEditorForm {
   private readonly fb = inject(FormBuilder);
-  data: { income?: M.FinanceIncome } = inject<{ income?: M.FinanceIncome }>(MAT_DIALOG_DATA, { optional: true }) ?? {};
-  existing = !!this.data.income;
+
+  income: M.FinanceIncome | null = null;
+  existing = false;
   sources = Object.values(M.FinanceIncomeSource);
   srcLabel(s: M.FinanceIncomeSource) { return M.FinanceIncomeSourceLabel[s]; }
+
   form = this.fb.nonNullable.group({
-    title: [this.data.income?.title ?? '', [Validators.required]],
-    amount: [this.data.income?.amount ?? 0, [Validators.required, Validators.min(0)]],
-    date: [(this.data.income?.date ?? new Date()).toISOString().substring(0, 10)],
-    source: [this.data.income?.source ?? M.FinanceIncomeSource.other],
-    receivedBy: [this.data.income?.receivedBy ?? ''],
-    notes: [this.data.income?.notes ?? ''],
+    title: ['', [Validators.required]],
+    amount: [0, [Validators.required, Validators.min(0)]],
+    date: [new Date().toISOString().substring(0, 10)],
+    source: [M.FinanceIncomeSource.other],
+    receivedBy: [''],
+    notes: [''],
   });
+
+  onSave?: (result: { action: 'save'; income: M.FinanceIncome } | { action: 'delete' }) => void;
+
+  init(income: M.FinanceIncome | null) {
+    this.income = income;
+    this.existing = !!income;
+    this.form.reset({
+      title: income?.title ?? '',
+      amount: income?.amount ?? 0,
+      date: (income?.date ?? new Date()).toISOString().substring(0, 10),
+      source: income?.source ?? M.FinanceIncomeSource.other,
+      receivedBy: income?.receivedBy ?? '',
+      notes: income?.notes ?? '',
+    });
+  }
+
   save() {
     if (this.form.invalid) { this.form.markAllAsTouched(); return; }
     const v = this.form.getRawValue();
-    const income: M.FinanceIncome = this.data.income
-      ? { ...this.data.income, ...v, amount: Number(v.amount), date: new Date(v.date) }
+    const income: M.FinanceIncome = this.income
+      ? { ...this.income, ...v, amount: Number(v.amount), date: new Date(v.date) }
       : { id: uuid(), ...v, amount: Number(v.amount), date: new Date(v.date) };
-    this.ref.close({ action: 'save', income });
+    this.onSave?.({ action: 'save', income });
+  }
+
+  delete() {
+    this.onSave?.({ action: 'delete' });
   }
 }
 
 @Component({
   selector: 'finances-screen',
   standalone: true,
-  imports: [CommonModule, MatButtonModule, MatCardModule, MatTabsModule, ScreenHeaderComponent, MatDialogModule],
+  imports: [CommonModule, MatButtonModule, MatCardModule, MatTabsModule, MatIconModule, ScreenHeaderComponent, ExpenseEditorForm, IncomeEditorForm],
   template: `
     <div class="bandos-page">
       <screen-header title="Finances" [subtitle]="subtitle()"></screen-header>
@@ -182,6 +226,39 @@ export class IncomeEditorDialog {
           </mat-tab>
         </mat-tab-group>
       }
+
+      <!-- Backdrop -->
+      <div class="panel-backdrop" [class.visible]="panelOpen()" (click)="closePanel()"></div>
+      <!-- Side panel -->
+      <aside class="editor-panel" [class.open]="panelOpen()">
+        <div class="panel-header">
+          <div class="panel-header-text">
+            <span class="panel-label">
+              @if (panelMode() === 'expense') {
+                {{ panelExpense() ? 'Edit expense' : 'New expense' }}
+              } @else {
+                {{ panelIncome() ? 'Edit income' : 'New income' }}
+              }
+            </span>
+            @if (panelMode() === 'expense' && panelExpense()?.title) {
+              <span class="panel-title">{{ panelExpense()!.title }}</span>
+            }
+            @if (panelMode() === 'income' && panelIncome()?.title) {
+              <span class="panel-title">{{ panelIncome()!.title }}</span>
+            }
+          </div>
+          <button mat-icon-button (click)="closePanel()"><mat-icon>close</mat-icon></button>
+        </div>
+        <div class="panel-body">
+          @if (panelOpen()) {
+            @if (panelMode() === 'expense') {
+              <expense-editor-form #expenseForm></expense-editor-form>
+            } @else {
+              <income-editor-form #incomeForm></income-editor-form>
+            }
+          }
+        </div>
+      </aside>
     </div>
   `,
   styles: [`
@@ -194,11 +271,22 @@ export class IncomeEditorDialog {
     .r-amt.expense { color: #EF4A35; }
     .meta { color: #9D9DA7; font-size: 12px; margin-top: 4px; }
     .notes { color: #C7C7CF; font-size: 13px; margin-top: 8px; }
+
+    /* ── Side panel ── */
+    .panel-backdrop { position: fixed; inset: 0; z-index: 200; background: transparent; pointer-events: none; transition: background 0.25s ease; }
+    .panel-backdrop.visible { background: rgba(0,0,0,0.55); pointer-events: all; }
+    .editor-panel { position: fixed; top: 0; right: 0; bottom: 0; width: 460px; z-index: 201; background: #17171B; border-left: 1px solid #2A2A31; display: flex; flex-direction: column; transform: translateX(100%); transition: transform 0.3s cubic-bezier(0.4,0,0.2,1); box-shadow: -12px 0 40px rgba(0,0,0,0.6); }
+    .editor-panel.open { transform: translateX(0); }
+    .panel-header { display: flex; align-items: center; justify-content: space-between; padding: 16px 20px 14px; border-bottom: 1px solid #2A2A31; flex-shrink: 0; }
+    .panel-header-text { display: flex; flex-direction: column; gap: 2px; min-width: 0; flex: 1; }
+    .panel-label { font-size: 11px; font-weight: 700; color: #9D9DA7; text-transform: uppercase; letter-spacing: 0.06em; }
+    .panel-title { font-size: 17px; font-weight: 800; color: #F6F1E8; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .panel-body { flex: 1; overflow-y: auto; padding: 20px; }
+    @media (max-width: 760px) { .editor-panel { width: 100%; } }
   `],
 })
 export class FinancesComponent {
   private readonly wsc = inject(WorkspaceController);
-  private readonly dialog = inject(MatDialog);
 
   workspace = computed(() => this.wsc.workspace());
   locked = computed(() => { const w = this.workspace(); return w ? !M.wsSupportsFinances(w) : false; });
@@ -218,46 +306,73 @@ export class FinancesComponent {
   srcLabel(s: M.FinanceIncomeSource) { return M.FinanceIncomeSourceLabel[s]; }
   stockOnHand(m: M.MerchItem) { return M.merchStockOnHand(m); }
 
-  newExpense() {
-    const ref = this.dialog.open(ExpenseEditorDialog, { data: {} });
-    ref.afterClosed().subscribe(async r => {
-      if (r?.action === 'save') {
-        const ws = this.workspace()!;
-        await this.wsc.saveFinances({ expenses: [r.expense, ...ws.expenses] });
-      }
-    });
+  panelOpen = signal(false);
+  panelMode = signal<'expense' | 'income'>('expense');
+  panelExpense = signal<M.FinanceExpense | null>(null);
+  panelIncome = signal<M.FinanceIncome | null>(null);
+
+  openExpensePanel(e?: M.FinanceExpense) {
+    this.panelMode.set('expense');
+    this.panelExpense.set(e ?? null);
+    this.panelOpen.set(true);
   }
-  editExpense(e: M.FinanceExpense) {
-    const ref = this.dialog.open(ExpenseEditorDialog, { data: { expense: e } });
-    ref.afterClosed().subscribe(async r => {
-      const ws = this.workspace()!;
-      if (r?.action === 'save') {
-        const next = ws.expenses.map(x => x.id === r.expense.id ? r.expense : x);
+
+  openIncomePanel(i?: M.FinanceIncome) {
+    this.panelMode.set('income');
+    this.panelIncome.set(i ?? null);
+    this.panelOpen.set(true);
+  }
+
+  closePanel() { this.panelOpen.set(false); }
+
+  @HostListener('document:keydown.escape')
+  onEscape() { if (this.panelOpen()) this.closePanel(); }
+
+  newExpense() { this.openExpensePanel(); }
+
+  editExpense(e: M.FinanceExpense) { this.openExpensePanel(e); }
+
+  async handleExpenseSave(result: { action: 'save'; expense: M.FinanceExpense } | { action: 'delete' }) {
+    const ws = this.workspace()!;
+    if (result.action === 'save') {
+      const existing = ws.expenses.find(x => x.id === result.expense.id);
+      if (existing) {
+        const next = ws.expenses.map(x => x.id === result.expense.id ? result.expense : x);
         await this.wsc.saveFinances({ expenses: next });
-      } else if (r?.action === 'delete') {
-        await this.wsc.saveFinances({ expenses: ws.expenses.filter(x => x.id !== e.id) });
+      } else {
+        await this.wsc.saveFinances({ expenses: [result.expense, ...ws.expenses] });
       }
-    });
-  }
-  newIncome() {
-    const ref = this.dialog.open(IncomeEditorDialog, { data: {} });
-    ref.afterClosed().subscribe(async r => {
-      if (r?.action === 'save') {
-        const ws = this.workspace()!;
-        await this.wsc.saveFinances({ incomes: [r.income, ...ws.incomes] });
+      this.closePanel();
+    } else if (result.action === 'delete') {
+      const expense = this.panelExpense();
+      if (expense) {
+        await this.wsc.saveFinances({ expenses: ws.expenses.filter(x => x.id !== expense.id) });
       }
-    });
+      this.closePanel();
+    }
   }
-  editIncome(i: M.FinanceIncome) {
-    const ref = this.dialog.open(IncomeEditorDialog, { data: { income: i } });
-    ref.afterClosed().subscribe(async r => {
-      const ws = this.workspace()!;
-      if (r?.action === 'save') {
-        const next = ws.incomes.map(x => x.id === r.income.id ? r.income : x);
+
+  newIncome() { this.openIncomePanel(); }
+
+  editIncome(i: M.FinanceIncome) { this.openIncomePanel(i); }
+
+  async handleIncomeSave(result: { action: 'save'; income: M.FinanceIncome } | { action: 'delete' }) {
+    const ws = this.workspace()!;
+    if (result.action === 'save') {
+      const existing = ws.incomes.find(x => x.id === result.income.id);
+      if (existing) {
+        const next = ws.incomes.map(x => x.id === result.income.id ? result.income : x);
         await this.wsc.saveFinances({ incomes: next });
-      } else if (r?.action === 'delete') {
-        await this.wsc.saveFinances({ incomes: ws.incomes.filter(x => x.id !== i.id) });
+      } else {
+        await this.wsc.saveFinances({ incomes: [result.income, ...ws.incomes] });
       }
-    });
+      this.closePanel();
+    } else if (result.action === 'delete') {
+      const income = this.panelIncome();
+      if (income) {
+        await this.wsc.saveFinances({ incomes: ws.incomes.filter(x => x.id !== income.id) });
+      }
+      this.closePanel();
+    }
   }
 }

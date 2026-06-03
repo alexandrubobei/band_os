@@ -386,6 +386,8 @@ export class SongEditorForm {
           <mat-label>Search</mat-label>
           <input matInput [value]="query()" (input)="query.set($any($event.target).value)" placeholder="Title, tuning, or notes…" />
         </mat-form-field>
+      </div>
+      <div class="new-song-row">
         <button mat-flat-button color="primary" (click)="newSong()">+ New song</button>
       </div>
 
@@ -516,6 +518,7 @@ export class SongEditorForm {
     </aside>
   `,
   styles: [`
+    .new-song-row { display: flex; justify-content: flex-start; margin-bottom: 12px; }
     .songs-table-wrap { background: #1D1D23; border: 1px solid #2A2A31; border-radius: 12px; overflow: hidden; }
     .songs-table { width: 100%; background: transparent; }
     .songs-table th.mat-mdc-header-cell { background: #16161B; color: #9D9DA7; font-weight: 700; font-size: 12px; text-transform: uppercase; letter-spacing: 0.04em; }

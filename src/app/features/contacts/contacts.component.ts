@@ -1,4 +1,4 @@
-import { Component, computed, inject } from '@angular/core';
+import { Component, computed, inject, signal, HostListener } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { MatButtonModule } from '@angular/material/button';
@@ -10,7 +10,6 @@ import { MatSelectModule } from '@angular/material/select';
 import { MatTableModule } from '@angular/material/table';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { MatSnackBar } from '@angular/material/snack-bar';
-import { MatDialog, MatDialogModule, MatDialogRef, MAT_DIALOG_DATA } from '@angular/material/dialog';
 import { v4 as uuid } from 'uuid';
 import { WorkspaceController } from '../../core/state/workspace-controller.service';
 import { ScreenHeaderComponent } from '../../shared/components/screen-header.component';
@@ -18,60 +17,9 @@ import { BandAvatarComponent } from '../../shared/components/band-avatar.compone
 import * as M from '../../core/models/models';
 
 @Component({
-  selector: 'contact-editor-dialog',
-  standalone: true,
-  imports: [CommonModule, ReactiveFormsModule, MatButtonModule, MatFormFieldModule, MatInputModule, MatSelectModule, MatDialogModule],
-  template: `
-    <h2 mat-dialog-title>{{ existing ? 'Edit contact' : 'New contact' }}</h2>
-    <form mat-dialog-content [formGroup]="form" class="bandos-stack" style="min-width:420px;">
-      <mat-form-field appearance="outline"><mat-label>Name</mat-label><input matInput formControlName="name" /></mat-form-field>
-      <mat-form-field appearance="outline">
-        <mat-label>Type</mat-label>
-        <mat-select formControlName="type">
-          @for (t of types; track t) { <mat-option [value]="t">{{ typeLabel(t) }}</mat-option> }
-        </mat-select>
-      </mat-form-field>
-      <mat-form-field appearance="outline"><mat-label>Phone</mat-label><input matInput formControlName="phone" /></mat-form-field>
-      <mat-form-field appearance="outline"><mat-label>Email</mat-label><input matInput formControlName="email" /></mat-form-field>
-      <mat-form-field appearance="outline"><mat-label>Notes</mat-label><textarea matInput rows="3" formControlName="notes"></textarea></mat-form-field>
-    </form>
-    <div mat-dialog-actions align="end">
-      @if (existing) { <button mat-button color="warn" style="margin-right: auto;" (click)="remove()">Delete</button> }
-      <button mat-button (click)="ref.close()">Cancel</button>
-      <button mat-flat-button color="primary" (click)="save()">Save</button>
-    </div>
-  `,
-})
-export class ContactEditorDialog {
-  ref = inject(MatDialogRef<ContactEditorDialog>);
-  private readonly fb = inject(FormBuilder);
-  data: { contact?: M.BandContact } = inject<{ contact?: M.BandContact }>(MAT_DIALOG_DATA, { optional: true }) ?? {};
-  existing = !!this.data.contact;
-  types = Object.values(M.BandContactType);
-  typeLabel(t: M.BandContactType) { return M.BandContactTypeLabel[t]; }
-
-  form = this.fb.nonNullable.group({
-    name: [this.data.contact?.name ?? '', [Validators.required]],
-    type: [this.data.contact?.type ?? M.BandContactType.venue],
-    phone: [this.data.contact?.phone ?? ''],
-    email: [this.data.contact?.email ?? ''],
-    notes: [this.data.contact?.notes ?? ''],
-  });
-  save() {
-    if (this.form.invalid) { this.form.markAllAsTouched(); return; }
-    const v = this.form.getRawValue();
-    const contact: M.BandContact = this.data.contact
-      ? { ...this.data.contact, ...v }
-      : { id: uuid(), ...v };
-    this.ref.close({ action: 'save', contact });
-  }
-  remove() { this.ref.close({ action: 'delete' }); }
-}
-
-@Component({
   selector: 'contacts-screen',
   standalone: true,
-  imports: [CommonModule, MatButtonModule, MatCardModule, MatIconModule, MatTableModule, MatTooltipModule, BandAvatarComponent, ScreenHeaderComponent, MatDialogModule],
+  imports: [CommonModule, ReactiveFormsModule, MatButtonModule, MatCardModule, MatFormFieldModule, MatIconModule, MatInputModule, MatSelectModule, MatTableModule, MatTooltipModule, BandAvatarComponent, ScreenHeaderComponent],
   template: `
     <div class="bandos-page">
       <screen-header title="Contacts" subtitle="Venues, promoters, photographers, and more."></screen-header>
@@ -111,7 +59,7 @@ export class ContactEditorDialog {
             <ng-container matColumnDef="actions">
               <th mat-header-cell *matHeaderCellDef class="actions-col">Actions</th>
               <td mat-cell *matCellDef="let c" class="actions-col">
-                <button mat-icon-button type="button" matTooltip="Edit" (click)="edit(c); $event.stopPropagation()">
+                <button mat-icon-button type="button" matTooltip="Edit" (click)="openPanel(c); $event.stopPropagation()">
                   <mat-icon>edit</mat-icon>
                 </button>
                 <button mat-icon-button type="button" color="warn" matTooltip="Delete" (click)="confirmDelete(c); $event.stopPropagation()">
@@ -121,13 +69,13 @@ export class ContactEditorDialog {
             </ng-container>
 
             <tr mat-header-row *matHeaderRowDef="displayedColumns"></tr>
-            <tr mat-row *matRowDef="let row; columns: displayedColumns;" class="contact-row" (click)="edit(row)"></tr>
+            <tr mat-row *matRowDef="let row; columns: displayedColumns;" class="contact-row" (click)="openPanel(row)"></tr>
           </table>
         </div>
 
         <div class="bandos-grid contacts-mobile">
           @for (c of contacts(); track c.id) {
-            <mat-card (click)="edit(c)" class="contact-card">
+            <mat-card (click)="openPanel(c)" class="contact-card">
               <band-avatar [displayName]="c.name" [size]="44"></band-avatar>
               <div class="contact-card-info">
                 <div class="name">{{ c.name }}</div>
@@ -139,6 +87,42 @@ export class ContactEditorDialog {
           }
         </div>
       }
+
+      <!-- Backdrop -->
+      <div class="panel-backdrop" [class.visible]="panelOpen()" (click)="closePanel()"></div>
+      <!-- Side panel -->
+      <aside class="editor-panel" [class.open]="panelOpen()">
+        <div class="panel-header">
+          <div class="panel-header-text">
+            <span class="panel-label">{{ panelItem() ? 'Edit contact' : 'New contact' }}</span>
+            @if (panelItem()?.name) {
+              <span class="panel-title">{{ panelItem()!.name }}</span>
+            }
+          </div>
+          <button mat-icon-button (click)="closePanel()"><mat-icon>close</mat-icon></button>
+        </div>
+        <div class="panel-body">
+          @if (panelOpen()) {
+            <form [formGroup]="form" class="bandos-stack">
+              <mat-form-field appearance="outline"><mat-label>Name</mat-label><input matInput formControlName="name" /></mat-form-field>
+              <mat-form-field appearance="outline">
+                <mat-label>Type</mat-label>
+                <mat-select formControlName="type">
+                  @for (t of types; track t) { <mat-option [value]="t">{{ typeLabel(t) }}</mat-option> }
+                </mat-select>
+              </mat-form-field>
+              <mat-form-field appearance="outline"><mat-label>Phone</mat-label><input matInput formControlName="phone" /></mat-form-field>
+              <mat-form-field appearance="outline"><mat-label>Email</mat-label><input matInput formControlName="email" /></mat-form-field>
+              <mat-form-field appearance="outline"><mat-label>Notes</mat-label><textarea matInput rows="3" formControlName="notes"></textarea></mat-form-field>
+              <div class="panel-actions">
+                @if (panelItem()) { <button mat-button color="warn" style="margin-right: auto;" (click)="panelDelete()">Delete</button> }
+                <button mat-button (click)="closePanel()">Cancel</button>
+                <button mat-flat-button color="primary" (click)="panelSave()">Save</button>
+              </div>
+            </form>
+          }
+        </div>
+      </aside>
     </div>
   `,
   styles: [`
@@ -163,30 +147,90 @@ export class ContactEditorDialog {
       .contacts-desktop { display: none; }
       .contacts-mobile { display: grid; }
     }
+
+    .panel-actions { display: flex; justify-content: flex-end; gap: 8px; padding-top: 8px; }
+
+    /* ── Side panel ── */
+    .panel-backdrop { position: fixed; inset: 0; z-index: 200; background: transparent; pointer-events: none; transition: background 0.25s ease; }
+    .panel-backdrop.visible { background: rgba(0,0,0,0.55); pointer-events: all; }
+    .editor-panel { position: fixed; top: 0; right: 0; bottom: 0; width: 460px; z-index: 201; background: #17171B; border-left: 1px solid #2A2A31; display: flex; flex-direction: column; transform: translateX(100%); transition: transform 0.3s cubic-bezier(0.4,0,0.2,1); box-shadow: -12px 0 40px rgba(0,0,0,0.6); }
+    .editor-panel.open { transform: translateX(0); }
+    .panel-header { display: flex; align-items: center; justify-content: space-between; padding: 16px 20px 14px; border-bottom: 1px solid #2A2A31; flex-shrink: 0; }
+    .panel-header-text { display: flex; flex-direction: column; gap: 2px; min-width: 0; flex: 1; }
+    .panel-label { font-size: 11px; font-weight: 700; color: #9D9DA7; text-transform: uppercase; letter-spacing: 0.06em; }
+    .panel-title { font-size: 17px; font-weight: 800; color: #F6F1E8; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .panel-body { flex: 1; overflow-y: auto; padding: 20px; }
+    @media (max-width: 760px) { .editor-panel { width: 100%; } }
   `],
 })
 export class ContactsComponent {
   private readonly wsc = inject(WorkspaceController);
-  private readonly dialog = inject(MatDialog);
   private readonly snack = inject(MatSnackBar);
+  private readonly fb = inject(FormBuilder);
+
   contacts = computed(() => this.wsc.workspace()?.contacts ?? []);
   displayedColumns = ['name', 'type', 'phone', 'email', 'actions'];
+  types = Object.values(M.BandContactType);
   typeLabel(t: M.BandContactType) { return M.BandContactTypeLabel[t]; }
-  newContact() {
-    const ref = this.dialog.open(ContactEditorDialog, { data: {} });
-    ref.afterClosed().subscribe(async r => { if (r?.action === 'save') await this.wsc.saveContact(r.contact); });
-  }
-  edit(c: M.BandContact) {
-    const ref = this.dialog.open(ContactEditorDialog, { data: { contact: c } });
-    ref.afterClosed().subscribe(async r => {
-      if (r?.action === 'save') await this.wsc.saveContact(r.contact);
-      else if (r?.action === 'delete') await this.wsc.deleteContact(c.id);
+
+  panelOpen = signal(false);
+  panelItem = signal<M.BandContact | null>(null);
+
+  form = this.fb.nonNullable.group({
+    name: ['', [Validators.required]],
+    type: [M.BandContactType.venue],
+    phone: [''],
+    email: [''],
+    notes: [''],
+  });
+
+  openPanel(item: M.BandContact | null) {
+    this.panelItem.set(item);
+    this.panelOpen.set(true);
+    this.form.reset({
+      name: item?.name ?? '',
+      type: item?.type ?? M.BandContactType.venue,
+      phone: item?.phone ?? '',
+      email: item?.email ?? '',
+      notes: item?.notes ?? '',
     });
   }
+
+  closePanel() { this.panelOpen.set(false); }
+
+  @HostListener('document:keydown.escape')
+  onEscape() { if (this.panelOpen()) this.closePanel(); }
+
+  newContact() { this.openPanel(null); }
+
+  edit(c: M.BandContact) { this.openPanel(c); }
+
+  async panelSave() {
+    if (this.form.invalid) { this.form.markAllAsTouched(); return; }
+    const v = this.form.getRawValue();
+    const existing = this.panelItem();
+    const contact: M.BandContact = existing
+      ? { ...existing, ...v }
+      : { id: uuid(), ...v };
+    await this.wsc.saveContact(contact);
+    this.closePanel();
+  }
+
+  async panelDelete() {
+    const item = this.panelItem();
+    if (!item) return;
+    const ok = window.confirm(`Delete "${item.name}"? This can't be undone.`);
+    if (!ok) return;
+    await this.wsc.deleteContact(item.id);
+    this.snack.open('Contact deleted.', 'OK', { duration: 1800 });
+    this.closePanel();
+  }
+
   async confirmDelete(c: M.BandContact) {
     const ok = window.confirm(`Delete "${c.name}"? This can't be undone.`);
     if (!ok) return;
     await this.wsc.deleteContact(c.id);
     this.snack.open('Contact deleted.', 'OK', { duration: 1800 });
+    if (this.panelItem()?.id === c.id) this.closePanel();
   }
 }

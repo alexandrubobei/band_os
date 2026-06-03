@@ -1,4 +1,4 @@
-import { Component, computed, effect, inject, input, output, signal } from '@angular/core';
+import { Component, computed, effect, HostListener, inject, input, output, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { MatButtonModule } from '@angular/material/button';
@@ -9,7 +9,6 @@ import { MatSelectModule } from '@angular/material/select';
 import { MatIconModule } from '@angular/material/icon';
 import { MatTableModule } from '@angular/material/table';
 import { MatTooltipModule } from '@angular/material/tooltip';
-import { MatDialog, MatDialogModule, MatDialogRef, MAT_DIALOG_DATA } from '@angular/material/dialog';
 import { MatSnackBar } from '@angular/material/snack-bar';
 import { v4 as uuid } from 'uuid';
 import { WorkspaceController } from '../../core/state/workspace-controller.service';
@@ -17,8 +16,7 @@ import { ScreenHeaderComponent } from '../../shared/components/screen-header.com
 import * as M from '../../core/models/models';
 
 /**
- * Reusable setlist editor form. Used inline in the desktop table (expanded row) and
- * wrapped by SetlistEditorDialog for the mobile popup.
+ * Reusable setlist editor form. Used inside the right-side panel.
  */
 @Component({
   selector: 'setlist-editor-form',
@@ -131,37 +129,10 @@ export class SetlistEditorForm {
   }
 }
 
-/**
- * Mobile popup wrapper around SetlistEditorForm.
- */
-@Component({
-  selector: 'setlist-editor-dialog',
-  standalone: true,
-  imports: [MatDialogModule, SetlistEditorForm],
-  template: `
-    <h2 mat-dialog-title>{{ data.setlist ? 'Edit setlist' : 'New setlist' }}</h2>
-    <div mat-dialog-content style="min-width:500px;">
-      <setlist-editor-form
-        [setlist]="data.setlist ?? null"
-        [songs]="data.songs"
-        (save)="onSave($event)"
-        (cancel)="ref.close()"
-        (delete)="onDelete()" />
-    </div>
-  `,
-})
-export class SetlistEditorDialog {
-  ref = inject(MatDialogRef<SetlistEditorDialog>);
-  data: { setlist?: M.BandSetlist; songs: M.Song[] } = inject(MAT_DIALOG_DATA);
-
-  onSave(setlist: M.BandSetlist) { this.ref.close({ action: 'save', setlist }); }
-  onDelete() { this.ref.close({ action: 'delete' }); }
-}
-
 @Component({
   selector: 'setlists-screen',
   standalone: true,
-  imports: [CommonModule, MatButtonModule, MatCardModule, MatIconModule, MatTableModule, MatTooltipModule, ScreenHeaderComponent, MatDialogModule, SetlistEditorForm],
+  imports: [CommonModule, MatButtonModule, MatCardModule, MatIconModule, MatTableModule, MatTooltipModule, ScreenHeaderComponent, SetlistEditorForm],
   template: `
     <div class="bandos-page">
       <screen-header title="Setlists" [subtitle]="subtitle()"></screen-header>
@@ -170,23 +141,12 @@ export class SetlistEditorDialog {
         @if (ws()) { <span class="bandos-pill">{{ ws()!.setlists.length }} saved</span> }
       </div>
 
-      <!-- Desktop: inline "create" form when isCreating -->
-      @if (isCreating()) {
-        <div class="inline-create setlists-desktop">
-          <div class="inline-create-header">New setlist</div>
-          <setlist-editor-form
-            [songs]="ws()?.songs ?? []"
-            (save)="onInlineSave($event)"
-            (cancel)="cancelCreate()" />
-        </div>
-      }
-
-      @if (setlists().length === 0 && !isCreating()) {
+      @if (setlists().length === 0) {
         <p class="bandos-muted">No setlists yet.</p>
-      } @else if (setlists().length > 0) {
-        <!-- Desktop: expandable table -->
+      } @else {
+        <!-- Desktop: flat table -->
         <div class="setlists-table-wrap setlists-desktop">
-          <table mat-table [dataSource]="setlists()" multiTemplateDataRows class="setlists-table">
+          <table mat-table [dataSource]="setlists()" class="setlists-table">
             <ng-container matColumnDef="title">
               <th mat-header-cell *matHeaderCellDef>Title</th>
               <td mat-cell *matCellDef="let sl"><span class="setlist-title">{{ sl.title }}</span></td>
@@ -210,8 +170,8 @@ export class SetlistEditorDialog {
             <ng-container matColumnDef="actions">
               <th mat-header-cell *matHeaderCellDef class="actions-col">Actions</th>
               <td mat-cell *matCellDef="let sl" class="actions-col">
-                <button mat-icon-button type="button" [matTooltip]="expandedId() === sl.id ? 'Collapse' : 'Edit'" (click)="toggleExpand(sl.id); $event.stopPropagation()">
-                  <mat-icon>{{ expandedId() === sl.id ? 'expand_less' : 'edit' }}</mat-icon>
+                <button mat-icon-button type="button" matTooltip="Edit" (click)="openPanel(sl); $event.stopPropagation()">
+                  <mat-icon>edit</mat-icon>
                 </button>
                 <button mat-icon-button type="button" color="warn" matTooltip="Delete" (click)="confirmDelete(sl); $event.stopPropagation()">
                   <mat-icon>delete</mat-icon>
@@ -219,31 +179,15 @@ export class SetlistEditorDialog {
               </td>
             </ng-container>
 
-            <ng-container matColumnDef="expanded">
-              <td mat-cell *matCellDef="let sl" [attr.colspan]="displayedColumns.length" class="expanded-cell">
-                @if (expandedId() === sl.id) {
-                  <div class="expanded-form">
-                    <setlist-editor-form
-                      [setlist]="sl"
-                      [songs]="ws()?.songs ?? []"
-                      (save)="onInlineSave($event)"
-                      (cancel)="collapseExpand()"
-                      (delete)="onInlineDelete(sl)" />
-                  </div>
-                }
-              </td>
-            </ng-container>
-
             <tr mat-header-row *matHeaderRowDef="displayedColumns"></tr>
-            <tr mat-row *matRowDef="let row; columns: displayedColumns;" class="setlist-row" [class.is-expanded]="expandedId() === row.id"></tr>
-            <tr mat-row *matRowDef="let row; columns: ['expanded']" class="expanded-row"></tr>
+            <tr mat-row *matRowDef="let row; columns: displayedColumns;" class="setlist-row" (click)="openPanel(row)"></tr>
           </table>
         </div>
 
-        <!-- Mobile: cards (clicks open dialog) -->
+        <!-- Mobile: cards -->
         <div class="bandos-grid setlists-mobile">
           @for (sl of setlists(); track sl.id) {
-            <mat-card (click)="edit(sl)" class="setlist-card">
+            <mat-card (click)="openPanel(sl)" class="setlist-card">
               <h3>{{ sl.title }}</h3>
               <div class="meta">{{ sl.items.length }} songs · {{ totalLabel(sl) }}</div>
               @if (sl.notes) { <div class="notes">{{ sl.notes }}</div> }
@@ -251,6 +195,31 @@ export class SetlistEditorDialog {
           }
         </div>
       }
+
+      <!-- Backdrop -->
+      <div class="panel-backdrop" [class.visible]="panelOpen()" (click)="closePanel()"></div>
+      <!-- Side panel -->
+      <aside class="editor-panel" [class.open]="panelOpen()">
+        <div class="panel-header">
+          <div class="panel-header-text">
+            <span class="panel-label">{{ panelItem() ? 'Edit setlist' : 'New setlist' }}</span>
+            @if (panelItem()?.title) {
+              <span class="panel-title">{{ panelItem()!.title }}</span>
+            }
+          </div>
+          <button mat-icon-button (click)="closePanel()"><mat-icon>close</mat-icon></button>
+        </div>
+        <div class="panel-body">
+          @if (panelOpen()) {
+            <setlist-editor-form
+              [setlist]="panelItem()"
+              [songs]="ws()?.songs ?? []"
+              (save)="onPanelSave($event)"
+              (cancel)="closePanel()"
+              (delete)="onPanelDelete()" />
+          }
+        </div>
+      </aside>
     </div>
   `,
   styles: [`
@@ -266,13 +235,7 @@ export class SetlistEditorDialog {
     .setlist-title { font-weight: 700; }
     .actions-col { width: 110px; text-align: right; white-space: nowrap; }
     .notes-cell { max-width: 360px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: #9D9DA7; }
-    .setlist-row.is-expanded td.mat-mdc-cell { background: #22222A; border-bottom-color: transparent; }
-    .expanded-row td { padding: 0 !important; border-bottom-color: #2A2A31; }
-    .expanded-cell { padding: 0 !important; }
-    .expanded-form { padding: 16px 20px; background: #16161B; border-top: 1px solid #2A2A31; }
-
-    .inline-create { background: #1D1D23; border: 1px solid #C8A77B; border-radius: 12px; padding: 16px 20px; margin-bottom: 16px; }
-    .inline-create-header { color: #C8A77B; font-weight: 700; font-size: 13px; text-transform: uppercase; letter-spacing: 0.04em; margin-bottom: 12px; }
+    .setlist-row { cursor: pointer; }
 
     .setlists-mobile { display: none; }
 
@@ -280,11 +243,22 @@ export class SetlistEditorDialog {
       .setlists-desktop { display: none; }
       .setlists-mobile { display: grid; }
     }
+
+    /* ── Side panel ── */
+    .panel-backdrop { position: fixed; inset: 0; z-index: 200; background: transparent; pointer-events: none; transition: background 0.25s ease; }
+    .panel-backdrop.visible { background: rgba(0,0,0,0.55); pointer-events: all; }
+    .editor-panel { position: fixed; top: 0; right: 0; bottom: 0; width: 460px; z-index: 201; background: #17171B; border-left: 1px solid #2A2A31; display: flex; flex-direction: column; transform: translateX(100%); transition: transform 0.3s cubic-bezier(0.4,0,0.2,1); box-shadow: -12px 0 40px rgba(0,0,0,0.6); }
+    .editor-panel.open { transform: translateX(0); }
+    .panel-header { display: flex; align-items: center; justify-content: space-between; padding: 16px 20px 14px; border-bottom: 1px solid #2A2A31; flex-shrink: 0; }
+    .panel-header-text { display: flex; flex-direction: column; gap: 2px; min-width: 0; flex: 1; }
+    .panel-label { font-size: 11px; font-weight: 700; color: #9D9DA7; text-transform: uppercase; letter-spacing: 0.06em; }
+    .panel-title { font-size: 17px; font-weight: 800; color: #F6F1E8; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .panel-body { flex: 1; overflow-y: auto; padding: 20px; }
+    @media (max-width: 760px) { .editor-panel { width: 100%; } }
   `],
 })
 export class SetlistsComponent {
   private readonly wsc = inject(WorkspaceController);
-  private readonly dialog = inject(MatDialog);
   private readonly snack = inject(MatSnackBar);
 
   ws = computed(() => this.wsc.workspace());
@@ -295,16 +269,21 @@ export class SetlistsComponent {
   });
 
   displayedColumns = ['title', 'count', 'total', 'notes', 'actions'];
-  expandedId = signal<string | null>(null);
-  isCreating = signal(false);
+
+  panelOpen = signal(false);
+  panelItem = signal<M.BandSetlist | null>(null);
 
   totalLabel(sl: M.BandSetlist) { return M.setlistTotals(sl).totalLabel; }
 
-  toggleExpand(id: string) {
-    this.expandedId.update(curr => curr === id ? null : id);
+  openPanel(item: M.BandSetlist | null) {
+    this.panelItem.set(item);
+    this.panelOpen.set(true);
   }
-  collapseExpand() { this.expandedId.set(null); }
-  cancelCreate() { this.isCreating.set(false); }
+
+  closePanel() { this.panelOpen.set(false); }
+
+  @HostListener('document:keydown.escape')
+  onEscape() { if (this.panelOpen()) this.closePanel(); }
 
   newSetlist() {
     const w = this.ws(); if (!w) return;
@@ -312,48 +291,28 @@ export class SetlistsComponent {
       this.snack.open('Free plan setlist limit reached. Upgrade to Premium.', 'OK', { duration: 3000 });
       return;
     }
-    // On mobile use the popup; on desktop expand a new-row form inline.
-    const isMobile = typeof window !== 'undefined' && window.matchMedia('(max-width: 760px)').matches;
-    if (isMobile) {
-      const ref = this.dialog.open(SetlistEditorDialog, { data: { songs: w.songs } });
-      ref.afterClosed().subscribe(async r => {
-        if (r?.action === 'save') await this.saveSetlistSafe(r.setlist, 'Setlist created.');
-      });
-    } else {
-      this.expandedId.set(null);
-      this.isCreating.set(true);
-    }
+    this.openPanel(null);
   }
 
-  /** Mobile-only: open dialog to edit. */
-  edit(sl: M.BandSetlist) {
-    const w = this.ws()!;
-    const ref = this.dialog.open(SetlistEditorDialog, { data: { setlist: sl, songs: w.songs } });
-    ref.afterClosed().subscribe(async r => {
-      if (r?.action === 'save') await this.saveSetlistSafe(r.setlist, 'Setlist saved.');
-      else if (r?.action === 'delete') await this.deleteSetlistSafe(sl.id, sl.title);
-    });
+  async onPanelSave(setlist: M.BandSetlist) {
+    const isNew = !this.panelItem();
+    this.closePanel();
+    await this.saveSetlistSafe(setlist, isNew ? 'Setlist created.' : 'Setlist saved.');
   }
 
-  /** Desktop inline save (from "+ New" inline form or expanded-row edit form). */
-  async onInlineSave(setlist: M.BandSetlist) {
-    const wasCreating = this.isCreating();
-    this.isCreating.set(false);
-    this.expandedId.set(null);
-    await this.saveSetlistSafe(setlist, wasCreating ? 'Setlist created.' : 'Setlist saved.');
-  }
-
-  async onInlineDelete(sl: M.BandSetlist) {
+  async onPanelDelete() {
+    const sl = this.panelItem();
+    if (!sl) return;
     const ok = window.confirm(`Delete "${sl.title}"? This can't be undone.`);
     if (!ok) return;
-    this.expandedId.set(null);
+    this.closePanel();
     await this.deleteSetlistSafe(sl.id, sl.title);
   }
 
   async confirmDelete(sl: M.BandSetlist) {
     const ok = window.confirm(`Delete "${sl.title}"? This can't be undone.`);
     if (!ok) return;
-    if (this.expandedId() === sl.id) this.expandedId.set(null);
+    if (this.panelItem()?.id === sl.id) this.closePanel();
     await this.deleteSetlistSafe(sl.id, sl.title);
   }
 
@@ -366,6 +325,7 @@ export class SetlistsComponent {
       this.snack.open(err?.message ?? 'Could not save setlist.', 'OK', { duration: 4000 });
     }
   }
+
   private async deleteSetlistSafe(id: string, _title: string) {
     try {
       await this.wsc.deleteSetlist(id);
