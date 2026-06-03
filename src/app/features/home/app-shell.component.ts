@@ -72,7 +72,7 @@ interface NavItem { label: string; icon: string; route: string; color: string; p
     </div>
   `,
   styles: [`
-    .shell { display: grid; grid-template-columns: 260px 1fr 300px; min-height: 100vh; }
+    .shell { display: grid; grid-template-columns: 260px 1fr 420px; min-height: 100vh; }
     .sidebar {
       background: #0F0F12;
       border-right: 1px solid #2A2A31;

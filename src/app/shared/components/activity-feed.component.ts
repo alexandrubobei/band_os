@@ -11,7 +11,7 @@ import { Router } from '@angular/router';
 @Component({
   selector: 'activity-feed',
   standalone: true,
-  imports: [CommonModule, MatIconModule, MatButtonModule, MatButtonToggleModule, MatChipsModule, MatTooltipModule],
+  imports: [CommonModule, MatIconModule, MatButtonModule, MatChipsModule, MatTooltipModule],
   template: `
     <div class="activity-feed-container">
       <div class="activity-feed-header">
@@ -20,12 +20,12 @@ import { Router } from '@angular/router';
 
       <!-- Filter Chips -->
       <div class="activity-filters">
-        <mat-button-toggle-group [value]="selectedFilter()" (change)="selectedFilter.set($event.value)" class="filter-group">
-          <mat-button-toggle value="all" class="filter-chip">All</mat-button-toggle>
-          <mat-button-toggle value="created" class="filter-chip">Created</mat-button-toggle>
-          <mat-button-toggle value="updated" class="filter-chip">Updated</mat-button-toggle>
-          <mat-button-toggle value="deleted" class="filter-chip">Deleted</mat-button-toggle>
-        </mat-button-toggle-group>
+        <div class="filter-group">
+          <button class="filter-chip" [class.active]="selectedFilter() === 'all'" (click)="selectedFilter.set('all')">All</button>
+          <button class="filter-chip" [class.active]="selectedFilter() === 'created'" (click)="selectedFilter.set('created')">Created</button>
+          <button class="filter-chip" [class.active]="selectedFilter() === 'updated'" (click)="selectedFilter.set('updated')">Updated</button>
+          <button class="filter-chip" [class.active]="selectedFilter() === 'deleted'" (click)="selectedFilter.set('deleted')">Deleted</button>
+        </div>
       </div>
 
       <!-- Activity Timeline -->
@@ -78,7 +78,7 @@ import { Router } from '@angular/router';
     }
 
     .activity-filters {
-      padding: 8px 16px;
+      padding: 12px 16px;
       border-bottom: 1px solid #2A2A31;
       flex-shrink: 0;
     }
@@ -87,27 +87,48 @@ import { Router } from '@angular/router';
       width: 100%;
       display: flex;
       gap: 0;
+      align-items: stretch;
+      justify-content: space-between;
     }
 
     .filter-chip {
       flex: 1;
-      font-size: 11px !important;
-      font-weight: 600 !important;
-      height: 28px !important;
-      text-transform: capitalize;
+      font-size: 11px;
+      font-weight: 600;
+      height: 36px;
+      padding: 0 12px;
+      border: 1px solid #2A2A31;
+      border-right: none;
+      background: #1D1D23;
+      color: #9D9DA7;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin: 0;
+      border-radius: 0;
+      transition: all 0.2s ease;
     }
 
-    /* Override Material toggle styles */
-    .filter-chip::ng-deep {
-      color: #9D9DA7 !important;
-      background: transparent !important;
-      border: 1px solid #2A2A31 !important;
+    .filter-chip:first-child {
+      border-radius: 6px 0 0 6px;
     }
 
-    .filter-chip[aria-pressed="true"]::ng-deep {
-      color: #C8A77B !important;
-      background: rgba(200, 167, 123, 0.1) !important;
-      border-color: #C8A77B !important;
+    .filter-chip:last-child {
+      border-radius: 0 6px 6px 0;
+      border-right: 1px solid #2A2A31;
+    }
+
+    .filter-chip:hover:not(.active) {
+      background: #22222A;
+      color: #C8A77B;
+    }
+
+    .filter-chip.active {
+      background: #C8A77B;
+      color: #16161B;
+      border-color: #C8A77B;
+      font-weight: 700;
     }
 
     .activity-timeline {
