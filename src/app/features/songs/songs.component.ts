@@ -1,17 +1,14 @@
-import { Component, computed, effect, inject, input, output, signal } from '@angular/core';
+import { Component, computed, effect, HostListener, inject, input, output, signal } from '@angular/core';
 import { CommonModule, DecimalPipe } from '@angular/common';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { MatButtonModule } from '@angular/material/button';
-import { MatCardModule } from '@angular/material/card';
 import { MatIconModule } from '@angular/material/icon';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
 import { MatSelectModule } from '@angular/material/select';
-import { MatChipsModule } from '@angular/material/chips';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatTableModule } from '@angular/material/table';
 import { MatTooltipModule } from '@angular/material/tooltip';
-import { MAT_DIALOG_DATA, MatDialog, MatDialogModule, MatDialogRef } from '@angular/material/dialog';
 import { MatSnackBar } from '@angular/material/snack-bar';
 import { v4 as uuid } from 'uuid';
 import { WorkspaceController } from '../../core/state/workspace-controller.service';
@@ -28,50 +25,23 @@ const COMMON_TIME_SIGNATURES = [
 ];
 
 const COMMON_TUNINGS = [
-  'E standard',
-  'Eb standard',
-  'D standard',
-  'C# standard',
-  'C standard',
-  'B standard (7-string)',
-  'Drop D',
-  'Drop C#',
-  'Drop C',
-  'Drop B',
-  'Drop A',
-  'DADGAD',
-  'Open G',
-  'Open D',
-  'Open E',
+  'E standard', 'Eb standard', 'D standard', 'C# standard', 'C standard',
+  'B standard (7-string)', 'Drop D', 'Drop C#', 'Drop C', 'Drop B', 'Drop A',
+  'DADGAD', 'Open G', 'Open D', 'Open E',
 ];
 
-interface SongEditorData {
-  song?: M.Song;
-  releases: M.SongRelease[];
-  canEdit: boolean;
-}
-
-interface PendingAudio {
-  file: File;
-  bytes: ArrayBuffer;
-  sizeBytes: number;
-}
+interface PendingAudio { file: File; bytes: ArrayBuffer; sizeBytes: number; }
 
 function formatAudioSize(bytes: number): string {
   if (bytes < 1024) return `${bytes} B`;
   if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(0)} KB`;
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
-
 function fileExtension(name: string): string {
   const idx = name.lastIndexOf('.');
   return idx >= 0 ? name.substring(idx + 1).toLowerCase() : '';
 }
 
-/**
- * Reusable song editor form. Used inline in the desktop table (expanded row) and
- * wrapped by SongEditorDialog for the mobile popup.
- */
 @Component({
   selector: 'song-editor-form',
   standalone: true,
@@ -168,7 +138,9 @@ function fileExtension(name: string): string {
         }
         @if (audioError()) { <div style="color:#E8B246;font-size:13px;">{{ audioError() }}</div> }
         <div class="audio-actions">
-          <input #fileInput type="file" [accept]="acceptAudio" hidden (change)="onFilePicked($any($event.target).files)" (cancel)="$event.stopPropagation()" />
+          <input #fileInput type="file" [accept]="acceptAudio" hidden
+            (change)="onFilePicked($any($event.target).files)"
+            (cancel)="$event.stopPropagation()" />
           @if (canManageAudio()) {
             <button type="button" mat-stroked-button (click)="fileInput.click()" [disabled]="uploading()">
               <mat-icon>{{ existingAudioUrl() || pendingAudio() ? 'swap_horiz' : 'audio_file' }}</mat-icon>
@@ -193,7 +165,7 @@ function fileExtension(name: string): string {
     </form>
     <div class="form-actions">
       @if (existing()) {
-        <button mat-button color="warn" style="margin-right: auto;" (click)="tryDelete()" [disabled]="uploading()">Delete</button>
+        <button mat-button color="warn" style="margin-right:auto;" (click)="tryDelete()" [disabled]="uploading()">Delete</button>
       }
       <button mat-button (click)="cancel.emit()" [disabled]="uploading()">Cancel</button>
       <button mat-flat-button color="primary" (click)="trySave()" [disabled]="uploading()">
@@ -202,8 +174,8 @@ function fileExtension(name: string): string {
     </div>
   `,
   styles: [`
-    .duration-picker { display: flex; align-items: center; gap: 4px; }
-    .duration-colon { color: #9D9DA7; font-size: 18px; font-weight: 700; padding-bottom: 18px; flex-shrink: 0; }
+    .duration-picker { display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; gap: 0 4px; flex: 1; }
+    .duration-colon { color: #9D9DA7; font-size: 18px; font-weight: 700; line-height: 1; text-align: center; padding-top: 22px; }
     .audio-section { display: flex; flex-direction: column; gap: 8px; padding-top: 4px; }
     .audio-section h3 { margin: 0; font-size: 15px; font-weight: 700; }
     .audio-hint { margin: 0; color: #9D9DA7; font-size: 13px; }
@@ -235,7 +207,6 @@ export class SongEditorForm {
   showReleaseField = computed(() => this.releases().length > 0 || !!this.song()?.releaseId);
   supportsAudioUpload = computed(() => this.ws.supportsSongAudioUpload);
   canManageAudio = computed(() => this.canEdit() && this.supportsAudioUpload());
-  /** Common presets, plus the song's current value if it's something custom (preserves old data). */
   tuningOptions = computed(() => {
     const current = this.song()?.tuning?.trim();
     if (current && !COMMON_TUNINGS.includes(current)) return [current, ...COMMON_TUNINGS];
@@ -247,8 +218,8 @@ export class SongEditorForm {
     return COMMON_TIME_SIGNATURES;
   });
 
-  readonly minuteOptions = Array.from({ length: 31 }, (_, i) => i);   // 0–30
-  readonly secondOptions = Array.from({ length: 60 }, (_, i) => i);   // 0–59
+  readonly minuteOptions = Array.from({ length: 31 }, (_, i) => i);
+  readonly secondOptions = Array.from({ length: 60 }, (_, i) => i);
 
   private _parseDuration(d: string): { m: number; s: number } {
     const match = d?.match(/^(\d+):(\d{2})$/);
@@ -286,8 +257,6 @@ export class SongEditorForm {
   });
 
   constructor() {
-    // Reset form + audio state when the song input changes (e.g., reused for a
-    // different row, or switching from "new" to "edit").
     effect(() => {
       const s = this.song();
       this.form.reset({
@@ -302,6 +271,9 @@ export class SongEditorForm {
         lyrics: s?.lyrics ?? '',
         attachmentLabel: s?.attachmentLabel ?? '',
       });
+      const dur = this._parseDuration(s?.duration ?? '3:00');
+      this.durationMins.set(dur.m);
+      this.durationSecs.set(dur.s);
       this.existingAudioUrl.set(s?.audioUrl ?? null);
       this.pendingAudio.set(null);
       this.audioError.set(null);
@@ -328,10 +300,7 @@ export class SongEditorForm {
     this.pendingAudio.set({ file, bytes, sizeBytes: file.size });
   }
 
-  clearPendingAudio() {
-    this.pendingAudio.set(null);
-    this.audioError.set(null);
-  }
+  clearPendingAudio() { this.pendingAudio.set(null); this.audioError.set(null); }
 
   async clearExistingAudio() {
     const s = this.song();
@@ -343,9 +312,7 @@ export class SongEditorForm {
       this.snack.open('Audio removed.', 'OK', { duration: 1800 });
     } catch (err: any) {
       this.snack.open(err?.message ?? 'Could not remove audio.', 'OK', { duration: 3000 });
-    } finally {
-      this.uploading.set(false);
-    }
+    } finally { this.uploading.set(false); }
   }
 
   async trySave() {
@@ -366,7 +333,6 @@ export class SongEditorForm {
       attachmentLabel: v.attachmentLabel.trim() ? v.attachmentLabel.trim() : null,
       updatedAt: new Date(),
     };
-
     this.uploading.set(true);
     try {
       await this.ws.saveSong(baseSong);
@@ -384,9 +350,7 @@ export class SongEditorForm {
       this.done.emit();
     } catch (err: any) {
       this.snack.open(err?.message ?? 'Could not save song.', 'OK', { duration: 4000 });
-    } finally {
-      this.uploading.set(false);
-    }
+    } finally { this.uploading.set(false); }
   }
 
   async tryDelete() {
@@ -404,34 +368,16 @@ export class SongEditorForm {
   }
 }
 
-/**
- * Mobile popup wrapper around SongEditorForm.
- */
-@Component({
-  selector: 'song-editor-dialog',
-  standalone: true,
-  imports: [MatDialogModule, SongEditorForm],
-  template: `
-    <h2 mat-dialog-title>{{ data.song ? 'Edit song' : 'New song' }}</h2>
-    <div mat-dialog-content style="min-width:460px;max-height:75vh;">
-      <song-editor-form
-        [song]="data.song ?? null"
-        [releases]="data.releases"
-        [canEdit]="data.canEdit"
-        (done)="ref.close({ action: 'done' })"
-        (cancel)="ref.close()" />
-    </div>
-  `,
-})
-export class SongEditorDialog {
-  ref = inject(MatDialogRef<SongEditorDialog>);
-  data: SongEditorData = inject<SongEditorData>(MAT_DIALOG_DATA);
-}
+// ─────────────────────────────────────────────────────────────────────────────
 
 @Component({
   selector: 'songs-screen',
   standalone: true,
-  imports: [CommonModule, MatButtonModule, MatCardModule, MatIconModule, MatFormFieldModule, MatInputModule, MatChipsModule, MatTableModule, MatTooltipModule, ScreenHeaderComponent, MatDialogModule, SongEditorForm],
+  imports: [
+    CommonModule, MatButtonModule, MatIconModule, MatFormFieldModule,
+    MatInputModule, MatTableModule, MatTooltipModule,
+    ScreenHeaderComponent, SongEditorForm,
+  ],
   template: `
     <div class="bandos-page">
       <screen-header title="Songs" [subtitle]="subtitle()"></screen-header>
@@ -440,28 +386,15 @@ export class SongEditorDialog {
           <mat-label>Search</mat-label>
           <input matInput [value]="query()" (input)="query.set($any($event.target).value)" placeholder="Title, tuning, or notes…" />
         </mat-form-field>
-      </div>
-      <div class="new-song-row">
         <button mat-flat-button color="primary" (click)="newSong()">+ New song</button>
       </div>
 
-      <!-- Desktop: inline "create" form when isCreating -->
-      @if (isCreating()) {
-        <div class="inline-create songs-desktop">
-          <div class="inline-create-header">New song</div>
-          <song-editor-form
-            [releases]="releases()"
-            [canEdit]="canEdit()"
-            (done)="cancelCreate()"
-            (cancel)="cancelCreate()" />
-        </div>
-      }
-
-      @if (filtered().length === 0 && !isCreating()) {
+      @if (filtered().length === 0) {
         <p class="bandos-muted">No songs yet. Click "+ New song" to add the first one.</p>
-      } @else if (filtered().length > 0) {
+      } @else {
         <div class="songs-table-wrap songs-desktop">
-          <table mat-table [dataSource]="filtered()" multiTemplateDataRows class="songs-table">
+          <table mat-table [dataSource]="filtered()" class="songs-table">
+
             <ng-container matColumnDef="title">
               <th mat-header-cell *matHeaderCellDef>Title</th>
               <td mat-cell *matCellDef="let song">
@@ -500,21 +433,9 @@ export class SongEditorDialog {
             </ng-container>
 
             <ng-container matColumnDef="actions">
-              <th mat-header-cell *matHeaderCellDef class="actions-col">Actions</th>
+              <th mat-header-cell *matHeaderCellDef class="actions-col"></th>
               <td mat-cell *matCellDef="let song" class="actions-col">
-                <button
-                  mat-icon-button
-                  type="button"
-                  [matTooltip]="expandedId() === song.id ? 'Collapse' : 'Edit'"
-                  [disabled]="!canEdit()"
-                  (click)="toggleExpand(song.id); $event.stopPropagation()">
-                  <mat-icon>{{ expandedId() === song.id ? 'expand_less' : 'edit' }}</mat-icon>
-                </button>
-                <button
-                  mat-icon-button
-                  type="button"
-                  color="warn"
-                  matTooltip="Delete"
+                <button mat-icon-button type="button" color="warn" matTooltip="Delete"
                   [disabled]="!canEdit()"
                   (click)="confirmDelete(song); $event.stopPropagation()">
                   <mat-icon>delete</mat-icon>
@@ -522,30 +443,18 @@ export class SongEditorDialog {
               </td>
             </ng-container>
 
-            <ng-container matColumnDef="expanded">
-              <td mat-cell *matCellDef="let song" [attr.colspan]="displayedColumns.length" class="expanded-cell">
-                @if (expandedId() === song.id) {
-                  <div class="expanded-form">
-                    <song-editor-form
-                      [song]="song"
-                      [releases]="releases()"
-                      [canEdit]="canEdit()"
-                      (done)="collapseExpand()"
-                      (cancel)="collapseExpand()" />
-                  </div>
-                }
-              </td>
-            </ng-container>
-
             <tr mat-header-row *matHeaderRowDef="displayedColumns"></tr>
-            <tr mat-row *matRowDef="let row; columns: displayedColumns;" class="song-row" [class.is-expanded]="expandedId() === row.id" [attr.data-status]="row.status" (click)="toggleExpand(row.id)"></tr>
-            <tr mat-row *matRowDef="let row; columns: ['expanded']" class="expanded-row" [class.is-collapsed]="expandedId() !== row.id" [attr.data-status]="row.status"></tr>
+            <tr mat-row *matRowDef="let row; columns: displayedColumns;"
+                class="song-row"
+                [class.is-selected]="panelSong()?.id === row.id"
+                [attr.data-status]="row.status"
+                (click)="openPanel(row)"></tr>
           </table>
         </div>
 
         <div class="songs-mobile">
           @for (song of filtered(); track song.id) {
-            <div class="song-card" [attr.data-status]="song.status" (click)="editInDialog(song)">
+            <div class="song-card" [attr.data-status]="song.status" (click)="openPanel(song)">
               <div class="song-card-header">
                 <div class="title-cell">
                   <span class="song-title">{{ song.title }}</span>
@@ -554,19 +463,7 @@ export class SongEditorDialog {
                   }
                 </div>
                 <div class="song-card-actions">
-                  <button
-                    mat-icon-button
-                    type="button"
-                    matTooltip="Edit"
-                    [disabled]="!canEdit()"
-                    (click)="editInDialog(song); $event.stopPropagation()">
-                    <mat-icon>edit</mat-icon>
-                  </button>
-                  <button
-                    mat-icon-button
-                    type="button"
-                    color="warn"
-                    matTooltip="Delete"
+                  <button mat-icon-button type="button" color="warn" matTooltip="Delete"
                     [disabled]="!canEdit()"
                     (click)="confirmDelete(song); $event.stopPropagation()">
                     <mat-icon>delete</mat-icon>
@@ -590,29 +487,78 @@ export class SongEditorDialog {
         </div>
       }
     </div>
+
+    <!-- Backdrop -->
+    <div class="panel-backdrop" [class.visible]="panelOpen()" (click)="closePanel()"></div>
+
+    <!-- Side panel -->
+    <aside class="songs-panel" [class.open]="panelOpen()">
+      <div class="panel-accent" [style.background]="panelSong() ? statusColor(panelSong()!.status) : '#C8A77B'"></div>
+      <div class="panel-header">
+        <div class="panel-header-text">
+          <span class="panel-label">{{ panelSong() ? 'Edit song' : 'New song' }}</span>
+          @if (panelSong()?.title) {
+            <span class="panel-title">{{ panelSong()!.title }}</span>
+          }
+        </div>
+        <button mat-icon-button (click)="closePanel()"><mat-icon>close</mat-icon></button>
+      </div>
+      <div class="panel-body">
+        @if (panelOpen()) {
+          <song-editor-form
+            [song]="panelSong()"
+            [releases]="releases()"
+            [canEdit]="canEdit()"
+            (done)="closePanel()"
+            (cancel)="closePanel()" />
+        }
+      </div>
+    </aside>
   `,
   styles: [`
-    .new-song-row { display: flex; justify-content: flex-start; margin-bottom: 12px; }
     .songs-table-wrap { background: #1D1D23; border: 1px solid #2A2A31; border-radius: 12px; overflow: hidden; }
     .songs-table { width: 100%; background: transparent; }
     .songs-table th.mat-mdc-header-cell { background: #16161B; color: #9D9DA7; font-weight: 700; font-size: 12px; text-transform: uppercase; letter-spacing: 0.04em; }
     .songs-table td.mat-mdc-cell, .songs-table th.mat-mdc-header-cell { border-bottom-color: #2A2A31; color: #E6E6EC; }
     .song-row { cursor: pointer; }
     .song-row:hover td.mat-mdc-cell { background: #22222A; }
-    .song-row.is-expanded td.mat-mdc-cell { background: #22222A; border-bottom-color: transparent; }
-    .expanded-row td { padding: 0 !important; border-bottom-color: #2A2A31; }
-    .expanded-row.is-collapsed { display: none; }
-    .expanded-cell { padding: 0 !important; }
-    .expanded-form { padding: 16px 20px; background: #16161B; border-top: 1px solid #2A2A31; }
+    .song-row.is-selected td.mat-mdc-cell { background: #1E1E2C; border-left-color: transparent; }
     .title-cell { display: flex; align-items: center; gap: 8px; }
     .song-title { font-weight: 700; }
     .audio-icon { font-size: 16px; width: 16px; height: 16px; color: #C8A77B; }
     .attachment-label { color: #C8A77B; font-size: 12px; margin-top: 4px; font-weight: 600; }
-    .actions-col { width: 110px; text-align: right; white-space: nowrap; }
+    .actions-col { width: 56px; text-align: right; white-space: nowrap; }
 
-    .inline-create { background: #1D1D23; border: 1px solid #C8A77B; border-radius: 12px; padding: 16px 20px; margin-bottom: 16px; }
-    .inline-create-header { color: #C8A77B; font-weight: 700; font-size: 13px; text-transform: uppercase; letter-spacing: 0.04em; margin-bottom: 12px; }
+    /* ── Side panel ── */
+    .panel-backdrop {
+      position: fixed; inset: 0; z-index: 200;
+      background: transparent; pointer-events: none;
+      transition: background 0.25s ease;
+    }
+    .panel-backdrop.visible { background: rgba(0,0,0,0.55); pointer-events: all; }
 
+    .songs-panel {
+      position: fixed; top: 0; right: 0; bottom: 0; z-index: 201;
+      width: 460px;
+      background: #17171B; border-left: 1px solid #2A2A31;
+      display: flex; flex-direction: column;
+      transform: translateX(100%);
+      transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+      box-shadow: -12px 0 40px rgba(0,0,0,0.6);
+    }
+    .songs-panel.open { transform: translateX(0); }
+
+    .panel-accent { height: 3px; flex-shrink: 0; transition: background 0.25s; }
+    .panel-header {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 16px 20px 14px; border-bottom: 1px solid #2A2A31; flex-shrink: 0;
+    }
+    .panel-header-text { display: flex; flex-direction: column; gap: 2px; min-width: 0; flex: 1; }
+    .panel-label { font-size: 11px; font-weight: 700; color: #9D9DA7; text-transform: uppercase; letter-spacing: 0.06em; }
+    .panel-title { font-size: 17px; font-weight: 800; color: #F6F1E8; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .panel-body { flex: 1; overflow-y: auto; padding: 20px; }
+
+    /* ── Mobile cards ── */
     .songs-mobile { display: none; flex-direction: column; gap: 10px; }
     .song-card { background: #1D1D23; border: 1px solid #2A2A31; border-radius: 12px; padding: 12px 14px; cursor: pointer; display: flex; flex-direction: column; gap: 8px; }
     .song-card:hover { background: #22222A; }
@@ -621,33 +567,31 @@ export class SongEditorDialog {
     .song-card-meta { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; color: #9D9DA7; font-size: 13px; }
     .meta-sep { color: #4A4A55; }
 
-    /* ── Status accent colours ──────────────────────────────────────── */
-    /* Left-border stripe on desktop data rows + expanded form rows */
-    .song-row[data-status="idea"]           td.mat-mdc-cell:first-child,
-    .expanded-row[data-status="idea"]       td.mat-mdc-cell { box-shadow: inset 3px 0 0 #A78BFA; }
-    .song-row[data-status="demo"]           td.mat-mdc-cell:first-child,
-    .expanded-row[data-status="demo"]       td.mat-mdc-cell { box-shadow: inset 3px 0 0 #60A5FA; }
-    .song-row[data-status="mixMaster"]      td.mat-mdc-cell:first-child,
-    .expanded-row[data-status="mixMaster"]  td.mat-mdc-cell { box-shadow: inset 3px 0 0 #FB923C; }
-    .song-row[data-status="releaseReady"]   td.mat-mdc-cell:first-child,
-    .expanded-row[data-status="releaseReady"] td.mat-mdc-cell { box-shadow: inset 3px 0 0 #FBBF24; }
-    .song-row[data-status="rehearsalReady"] td.mat-mdc-cell:first-child,
-    .expanded-row[data-status="rehearsalReady"] td.mat-mdc-cell { box-shadow: inset 3px 0 0 #34D399; }
-    .song-row[data-status="liveReady"]      td.mat-mdc-cell:first-child,
-    .expanded-row[data-status="liveReady"]  td.mat-mdc-cell { box-shadow: inset 3px 0 0 #4ADE80; }
-    .song-row[data-status="released"]       td.mat-mdc-cell:first-child,
-    .expanded-row[data-status="released"]   td.mat-mdc-cell { box-shadow: inset 3px 0 0 #22C55E; }
+    @media (max-width: 760px) {
+      .songs-desktop { display: none; }
+      .songs-mobile { display: flex; }
+      .songs-panel { width: 100%; }
+    }
 
-    /* Status pill — desktop table + mobile card */
+    /* ── Status left-border stripes ── */
+    .song-row[data-status="idea"]           td.mat-mdc-cell:first-child { box-shadow: inset 3px 0 0 #A78BFA; }
+    .song-row[data-status="demo"]           td.mat-mdc-cell:first-child { box-shadow: inset 3px 0 0 #60A5FA; }
+    .song-row[data-status="mixMaster"]      td.mat-mdc-cell:first-child { box-shadow: inset 3px 0 0 #FB923C; }
+    .song-row[data-status="releaseReady"]   td.mat-mdc-cell:first-child { box-shadow: inset 3px 0 0 #FBBF24; }
+    .song-row[data-status="rehearsalReady"] td.mat-mdc-cell:first-child { box-shadow: inset 3px 0 0 #34D399; }
+    .song-row[data-status="liveReady"]      td.mat-mdc-cell:first-child { box-shadow: inset 3px 0 0 #4ADE80; }
+    .song-row[data-status="released"]       td.mat-mdc-cell:first-child { box-shadow: inset 3px 0 0 #22C55E; }
+
+    /* ── Status pills ── */
     .song-row[data-status="idea"] .bandos-pill,           .song-card[data-status="idea"] .bandos-pill           { color:#A78BFA; border-color:rgba(167,139,250,.3); background:rgba(167,139,250,.1); }
     .song-row[data-status="demo"] .bandos-pill,           .song-card[data-status="demo"] .bandos-pill           { color:#60A5FA; border-color:rgba(96,165,250,.3);   background:rgba(96,165,250,.1); }
     .song-row[data-status="mixMaster"] .bandos-pill,      .song-card[data-status="mixMaster"] .bandos-pill      { color:#FB923C; border-color:rgba(251,146,60,.3);   background:rgba(251,146,60,.1); }
     .song-row[data-status="releaseReady"] .bandos-pill,   .song-card[data-status="releaseReady"] .bandos-pill   { color:#FBBF24; border-color:rgba(251,191,36,.3);   background:rgba(251,191,36,.1); }
     .song-row[data-status="rehearsalReady"] .bandos-pill, .song-card[data-status="rehearsalReady"] .bandos-pill { color:#34D399; border-color:rgba(52,211,153,.3);    background:rgba(52,211,153,.1); }
     .song-row[data-status="liveReady"] .bandos-pill,      .song-card[data-status="liveReady"] .bandos-pill      { color:#4ADE80; border-color:rgba(74,222,128,.3);    background:rgba(74,222,128,.1); }
-    .song-row[data-status="released"] .bandos-pill,       .song-card[data-status="released"] .bandos-pill       { color:#22C55E; border-color:rgba(34,197,94,.3);      background:rgba(34,197,94,.1); }
+    .song-row[data-status="released"] .bandos-pill,       .song-card[data-status="released"] .bandos-pill       { color:#22C55E; border-color:rgba(34,197,94,.3);     background:rgba(34,197,94,.1); }
 
-    /* Mobile card left border */
+    /* ── Mobile card left borders ── */
     .song-card[data-status="idea"]           { border-left: 3px solid #A78BFA; }
     .song-card[data-status="demo"]           { border-left: 3px solid #60A5FA; }
     .song-card[data-status="mixMaster"]      { border-left: 3px solid #FB923C; }
@@ -655,16 +599,10 @@ export class SongEditorDialog {
     .song-card[data-status="rehearsalReady"] { border-left: 3px solid #34D399; }
     .song-card[data-status="liveReady"]      { border-left: 3px solid #4ADE80; }
     .song-card[data-status="released"]       { border-left: 3px solid #22C55E; }
-
-    @media (max-width: 760px) {
-      .songs-desktop { display: none; }
-      .songs-mobile { display: flex; }
-    }
   `],
 })
 export class SongsComponent {
   private readonly ws = inject(WorkspaceController);
-  private readonly dialog = inject(MatDialog);
   private readonly snack = inject(MatSnackBar);
 
   query = signal('');
@@ -683,18 +621,30 @@ export class SongsComponent {
   });
   displayedColumns = ['title', 'status', 'tuning', 'bpm', 'duration', 'actions'];
 
-  expandedId = signal<string | null>(null);
-  isCreating = signal(false);
+  panelOpen = signal(false);
+  panelSong = signal<M.Song | null>(null);
 
+  private readonly STATUS_COLORS: Record<M.SongStatus, string> = {
+    [M.SongStatus.idea]: '#A78BFA',
+    [M.SongStatus.demo]: '#60A5FA',
+    [M.SongStatus.mixMaster]: '#FB923C',
+    [M.SongStatus.releaseReady]: '#FBBF24',
+    [M.SongStatus.rehearsalReady]: '#34D399',
+    [M.SongStatus.liveReady]: '#4ADE80',
+    [M.SongStatus.released]: '#22C55E',
+  };
+  statusColor(s: M.SongStatus): string { return this.STATUS_COLORS[s] ?? '#C8A77B'; }
   statusLabel(s: M.SongStatus) { return M.SongStatusLabel[s]; }
 
-  toggleExpand(id: string) {
-    if (!this.canEdit()) return;
-    if (this.isCreating()) this.isCreating.set(false);
-    this.expandedId.update(curr => curr === id ? null : id);
+  @HostListener('document:keydown.escape')
+  onEscape() { if (this.panelOpen()) this.closePanel(); }
+
+  openPanel(song: M.Song | null) {
+    this.panelSong.set(song);
+    this.panelOpen.set(true);
   }
-  collapseExpand() { this.expandedId.set(null); }
-  cancelCreate() { this.isCreating.set(false); }
+
+  closePanel() { this.panelOpen.set(false); }
 
   newSong() {
     const w = this.workspace();
@@ -703,27 +653,14 @@ export class SongsComponent {
       this.snack.open('Free plan song limit reached. Upgrade to Premium.', 'OK', { duration: 3000 });
       return;
     }
-    // On mobile use the popup; on desktop expand a new-row form inline.
-    const isMobile = typeof window !== 'undefined' && window.matchMedia('(max-width: 760px)').matches;
-    if (isMobile) {
-      this.dialog.open(SongEditorDialog, { data: { releases: w.releases, canEdit: M.wsCanEditContent(w) } });
-    } else {
-      this.expandedId.set(null);
-      this.isCreating.set(true);
-    }
-  }
-
-  /** Mobile-only: open dialog to edit. */
-  editInDialog(song: M.Song) {
-    const w = this.workspace(); if (!w) return;
-    this.dialog.open(SongEditorDialog, { data: { song, releases: w.releases, canEdit: M.wsCanEditContent(w) } });
+    this.openPanel(null);
   }
 
   async confirmDelete(song: M.Song) {
     if (!this.canEdit()) return;
     const ok = window.confirm(`Delete "${song.title}"? This can't be undone.`);
     if (!ok) return;
-    if (this.expandedId() === song.id) this.expandedId.set(null);
+    if (this.panelSong()?.id === song.id) this.closePanel();
     try {
       await this.ws.deleteSong(song.id);
       this.snack.open('Song deleted.', 'OK', { duration: 1800 });
