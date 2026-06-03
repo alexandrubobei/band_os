@@ -119,6 +119,7 @@ export interface BandMember {
   displayName: string;
   role: BandRole;
   email?: string | null;
+  assignedColor?: string; // Hex color for presence indicators (e.g., #FF6B6B)
 }
 
 export function memberInitials(displayName: string): string {

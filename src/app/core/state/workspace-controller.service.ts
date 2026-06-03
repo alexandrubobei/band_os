@@ -1,13 +1,20 @@
 import { Injectable, computed, effect, inject, signal } from '@angular/core';
+import { debounceTime, Subscription } from 'rxjs';
 import * as M from '../models/models';
 import { WORKSPACE_REPOSITORY, WorkspaceRepository, WorkspaceRepositoryException } from '../repos/workspace-repository';
 import { AuthController } from './auth-controller.service';
 import { AsyncState } from './async-state';
+import { PresenceService } from '../services/presence.service';
+import { ActivityLogService } from '../services/activity-log.service';
 
 @Injectable({ providedIn: 'root' })
 export class WorkspaceController {
   private readonly repo = inject(WORKSPACE_REPOSITORY) as WorkspaceRepository;
   private readonly auth = inject(AuthController);
+  private readonly presence = inject(PresenceService);
+  private readonly activityLog = inject(ActivityLogService);
+
+  private realtimeSyncUnsubscribe: Subscription | null = null;
 
   readonly state = signal<AsyncState<M.BandWorkspace | null>>(AsyncState.loading());
   readonly memberships = signal<AsyncState<M.BandWorkspace[]>>(AsyncState.loading());
@@ -33,9 +40,24 @@ export class WorkspaceController {
         this.pendingAccess.set(AsyncState.data(null));
         this.hydratedUserId.set(null);
         this.pendingHydratedUserId.set(null);
+        this.stopRealtimeSync();
         return;
       }
       void this.hydrateFor(user);
+    }, { allowSignalWrites: true });
+
+    // Set up real-time sync when workspace loads
+    effect(() => {
+      const ws = this.workspace();
+      if (ws) {
+        this.initializeRealtimeSync(ws.id);
+        this.presence.startPresenceTracking(ws.id);
+        this.activityLog.startActivityTracking(ws.id);
+      } else {
+        this.stopRealtimeSync();
+        this.presence.stopPresenceTracking();
+        this.activityLog.stopActivityTracking();
+      }
     }, { allowSignalWrites: true });
   }
 
@@ -125,27 +147,157 @@ export class WorkspaceController {
     this.pendingAccess.set(AsyncState.data(null));
   }
 
+  /**
+   * Initialize real-time sync for workspace changes
+   * Subscribes to watchWorkspace() observable with debouncing
+   */
+  private initializeRealtimeSync(workspaceId: string): void {
+    // Stop previous subscription if exists
+    this.stopRealtimeSync();
+
+    const user = this.auth.user;
+    if (!user) return;
+
+    try {
+      const watchObservable = this.repo.watchWorkspace?.({ workspaceId, currentUserId: user.id });
+      if (watchObservable) {
+        this.realtimeSyncUnsubscribe = watchObservable
+          .pipe(debounceTime(150)) // Debounce rapid updates to prevent UI thrashing
+          .subscribe({
+            next: (updated) => {
+              if (updated) {
+                this.apply(updated);
+              }
+            },
+            error: (error) => {
+              console.error('Real-time sync error:', error);
+              // Don't set error state - real-time is optional, app still works with manual refreshes
+            },
+          });
+      }
+    } catch (error) {
+      console.error('Error setting up real-time sync:', error);
+    }
+  }
+
+  /**
+   * Stop real-time sync subscription
+   */
+  private stopRealtimeSync(): void {
+    if (this.realtimeSyncUnsubscribe) {
+      this.realtimeSyncUnsubscribe.unsubscribe();
+      this.realtimeSyncUnsubscribe = null;
+    }
+  }
+
   /** Apply a workspace mutation returned by the repo. */
   private apply(ws: M.BandWorkspace): M.BandWorkspace {
     this.state.set(AsyncState.data(ws));
     return ws;
   }
 
-  saveSong(song: M.Song) { return this.mutate(ws => this.repo.saveSong({ workspace: ws, song })); }
-  deleteSong(songId: string) { return this.mutate(ws => this.repo.deleteSong({ workspace: ws, songId })); }
+  async saveSong(song: M.Song) {
+    const user = this.requireUser();
+    const existingSong = this.workspace()?.songs.find(s => s.id === song.id);
+    const result = await this.mutate(ws => this.repo.saveSong({ workspace: ws, song }));
+    await this.activityLog.logActivity(
+      user.id,
+      user.displayName,
+      existingSong ? 'updated' : 'created',
+      'song',
+      song.id,
+      song.title
+    );
+    return result;
+  }
+
+  async deleteSong(songId: string) {
+    const user = this.requireUser();
+    const song = this.workspace()?.songs.find(s => s.id === songId);
+    const result = await this.mutate(ws => this.repo.deleteSong({ workspace: ws, songId }));
+    if (song) {
+      await this.activityLog.logActivity(
+        user.id,
+        user.displayName,
+        'deleted',
+        'song',
+        song.id,
+        song.title
+      );
+    }
+    return result;
+  }
   saveSongs(songs: M.Song[]) { return this.mutate(ws => this.repo.saveSongs({ workspace: ws, songs })); }
   updateSongAudio(song: M.Song, audioBytes: ArrayBuffer, originalFileName: string) { return this.mutate(ws => this.repo.updateSongAudio({ workspace: ws, song, audioBytes, originalFileName })); }
   clearSongAudio(song: M.Song) { return this.mutate(ws => this.repo.clearSongAudio({ workspace: ws, song })); }
 
-  saveSetlist(setlist: M.BandSetlist) { return this.mutate(ws => this.repo.saveSetlist({ workspace: ws, setlist })); }
-  deleteSetlist(setlistId: string) { return this.mutate(ws => this.repo.deleteSetlist({ workspace: ws, setlistId })); }
+  async saveSetlist(setlist: M.BandSetlist) {
+    const user = this.requireUser();
+    const existingSetlist = this.workspace()?.setlists.find(s => s.id === setlist.id);
+    const result = await this.mutate(ws => this.repo.saveSetlist({ workspace: ws, setlist }));
+    await this.activityLog.logActivity(
+      user.id,
+      user.displayName,
+      existingSetlist ? 'updated' : 'created',
+      'setlist',
+      setlist.id,
+      setlist.title
+    );
+    return result;
+  }
+
+  async deleteSetlist(setlistId: string) {
+    const user = this.requireUser();
+    const setlist = this.workspace()?.setlists.find(s => s.id === setlistId);
+    const result = await this.mutate(ws => this.repo.deleteSetlist({ workspace: ws, setlistId }));
+    if (setlist) {
+      await this.activityLog.logActivity(
+        user.id,
+        user.displayName,
+        'deleted',
+        'setlist',
+        setlist.id,
+        setlist.title
+      );
+    }
+    return result;
+  }
 
   saveRelease(release: M.SongRelease) { return this.mutate(ws => this.repo.saveRelease({ workspace: ws, release })); }
   deleteRelease(releaseId: string) { return this.mutate(ws => this.repo.deleteRelease({ workspace: ws, releaseId })); }
   saveReleases(releases: M.SongRelease[]) { return this.mutate(ws => this.repo.saveReleases({ workspace: ws, releases })); }
 
-  saveEvent(event: M.BandEvent) { return this.mutate(ws => this.repo.saveEvent({ workspace: ws, event })); }
-  deleteEvent(eventId: string) { return this.mutate(ws => this.repo.deleteEvent({ workspace: ws, eventId })); }
+  async saveEvent(event: M.BandEvent) {
+    const user = this.requireUser();
+    const existingEvent = this.workspace()?.events.find(e => e.id === event.id);
+    const result = await this.mutate(ws => this.repo.saveEvent({ workspace: ws, event }));
+    await this.activityLog.logActivity(
+      user.id,
+      user.displayName,
+      existingEvent ? 'updated' : 'created',
+      'event',
+      event.id,
+      event.title
+    );
+    return result;
+  }
+
+  async deleteEvent(eventId: string) {
+    const user = this.requireUser();
+    const event = this.workspace()?.events.find(e => e.id === eventId);
+    const result = await this.mutate(ws => this.repo.deleteEvent({ workspace: ws, eventId }));
+    if (event) {
+      await this.activityLog.logActivity(
+        user.id,
+        user.displayName,
+        'deleted',
+        'event',
+        event.id,
+        event.title
+      );
+    }
+    return result;
+  }
 
   saveContact(contact: M.BandContact) { return this.mutate(ws => this.repo.saveContact({ workspace: ws, contact })); }
   deleteContact(contactId: string) { return this.mutate(ws => this.repo.deleteContact({ workspace: ws, contactId })); }
@@ -153,9 +305,55 @@ export class WorkspaceController {
   saveRider(rider: M.TechnicalRider) { return this.mutate(ws => this.repo.saveTechnicalRider({ workspace: ws, rider })); }
   deleteRider(riderId: string) { return this.mutate(ws => this.repo.deleteTechnicalRider({ workspace: ws, riderId })); }
 
-  saveTask(task: M.BandTask) { return this.mutate(ws => this.repo.saveTask({ workspace: ws, task })); }
-  updateTaskStatus(taskId: string, status: M.BandTaskStatus) { return this.mutate(ws => this.repo.updateTaskStatus({ workspace: ws, taskId, status })); }
-  deleteTask(taskId: string) { return this.mutate(ws => this.repo.deleteTask({ workspace: ws, taskId })); }
+  async saveTask(task: M.BandTask) {
+    const user = this.requireUser();
+    const existingTask = this.workspace()?.tasks.find(t => t.id === task.id);
+    const result = await this.mutate(ws => this.repo.saveTask({ workspace: ws, task }));
+    await this.activityLog.logActivity(
+      user.id,
+      user.displayName,
+      existingTask ? 'updated' : 'created',
+      'task',
+      task.id,
+      task.title
+    );
+    return result;
+  }
+
+  async updateTaskStatus(taskId: string, status: M.BandTaskStatus) {
+    const user = this.requireUser();
+    const task = this.workspace()?.tasks.find(t => t.id === taskId);
+    const result = await this.mutate(ws => this.repo.updateTaskStatus({ workspace: ws, taskId, status }));
+    if (task) {
+      await this.activityLog.logActivity(
+        user.id,
+        user.displayName,
+        'updated',
+        'task',
+        task.id,
+        task.title,
+        { newStatus: status }
+      );
+    }
+    return result;
+  }
+
+  async deleteTask(taskId: string) {
+    const user = this.requireUser();
+    const task = this.workspace()?.tasks.find(t => t.id === taskId);
+    const result = await this.mutate(ws => this.repo.deleteTask({ workspace: ws, taskId }));
+    if (task) {
+      await this.activityLog.logActivity(
+        user.id,
+        user.displayName,
+        'deleted',
+        'task',
+        task.id,
+        task.title
+      );
+    }
+    return result;
+  }
 
   saveFinances(args: { expenses?: M.FinanceExpense[]; incomes?: M.FinanceIncome[]; merchItems?: M.MerchItem[] }) {
     return this.mutate(ws => this.repo.saveFinances({ workspace: ws, ...args }));

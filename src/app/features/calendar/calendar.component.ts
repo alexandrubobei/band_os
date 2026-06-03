@@ -16,6 +16,8 @@ import {
 } from 'date-fns';
 import { v4 as uuid } from 'uuid';
 import { WorkspaceController } from '../../core/state/workspace-controller.service';
+import { PresenceService, UserPresence } from '../../core/services/presence.service';
+import { PresenceAvatarComponent } from '../../shared/components/presence-avatar.component';
 import { ScreenHeaderComponent } from '../../shared/components/screen-header.component';
 import * as M from '../../core/models/models';
 
@@ -50,6 +52,7 @@ interface CalendarDay {
     MatProgressBarModule,
     MatProgressSpinnerModule,
     ScreenHeaderComponent,
+    PresenceAvatarComponent,
   ],
   template: `
     <div class="bandos-page">
@@ -107,6 +110,11 @@ interface CalendarDay {
                 <div class="ev-info">
                   <div class="title-row">
                     <div class="ev-title">{{ e.title }}</div>
+                    <div class="presence-avatars">
+                      @for (user of usersViewingEntity(e.id); track user.userId) {
+                        <presence-avatar [presence]="user"></presence-avatar>
+                      }
+                    </div>
                     <span class="ev-pill" [style.background]="colorFor(e.type)">{{ typeLabel(e.type) }}</span>
                   </div>
                   <div class="meta">{{ e.startAt | date:'EEEE, MMM d · HH:mm' }} · {{ e.location }}</div>
@@ -185,8 +193,11 @@ interface CalendarDay {
     .date .d { font-size: 22px; font-weight: 800; line-height: 1; }
     .date .m { font-size: 11px; color: #9D9DA7; text-transform: uppercase; }
     .ev-info { flex: 1; }
-    .title-row { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
-    .ev-title { font-weight: 700; }
+    .title-row { display: flex; align-items: center; gap: 8px; }
+    .ev-title { font-weight: 700; flex: 1; min-width: 0; }
+    .presence-avatars { display: flex; align-items: center; gap: -8px; flex-shrink: 0; }
+    .presence-avatars presence-avatar { margin-left: -8px; }
+    .presence-avatars presence-avatar:first-child { margin-left: 0; }
     .ev-pill { font-size: 11px; font-weight: 700; color: #fff; padding: 3px 8px; border-radius: 999px; text-transform: uppercase; letter-spacing: 0.04em; white-space: nowrap; }
     .meta { color: #9D9DA7; font-size: 12px; margin-top: 4px; }
     .notes { color: #C7C7CF; font-size: 13px; margin-top: 8px; }
@@ -241,6 +252,7 @@ export class CalendarComponent {
   private readonly wsc = inject(WorkspaceController);
   private readonly snack = inject(MatSnackBar);
   private readonly fb = inject(FormBuilder);
+  private readonly presence = inject(PresenceService);
 
   /** Counter of in-flight create/update/delete ops. Drives the page-level progress bar. */
   private readonly pendingOps = signal(0);
@@ -267,6 +279,23 @@ export class CalendarComponent {
     location: [''],
     notes: [''],
   });
+
+  // Presence tracking: Map entity IDs to users viewing them
+  usersViewingByEntityId = computed(() => {
+    const map = new Map<string, UserPresence[]>();
+    this.presence.allPresences().forEach(p => {
+      if (p.viewingEntityId) {
+        if (!map.has(p.viewingEntityId)) {
+          map.set(p.viewingEntityId, []);
+        }
+        map.get(p.viewingEntityId)!.push(p);
+      }
+    });
+    return map;
+  });
+
+  // Get users viewing a specific entity
+  usersViewingEntity = (entityId: string) => this.usersViewingByEntityId().get(entityId) ?? [];
 
   events = computed(() => {
     const today = startOfDay(new Date());

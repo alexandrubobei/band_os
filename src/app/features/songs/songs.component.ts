@@ -12,8 +12,10 @@ import { MatTooltipModule } from '@angular/material/tooltip';
 import { MatDialog, MatDialogModule } from '@angular/material/dialog';
 import { MatSnackBar } from '@angular/material/snack-bar';
 import { DeleteConfirmationDialog } from '../../shared/components/delete-confirmation-dialog.component';
+import { PresenceAvatarComponent } from '../../shared/components/presence-avatar.component';
 import { v4 as uuid } from 'uuid';
 import { WorkspaceController } from '../../core/state/workspace-controller.service';
+import { PresenceService, UserPresence } from '../../core/services/presence.service';
 import { ScreenHeaderComponent } from '../../shared/components/screen-header.component';
 import * as M from '../../core/models/models';
 
@@ -436,7 +438,7 @@ export class SongEditorForm {
   imports: [
     CommonModule, MatButtonModule, MatIconModule, MatFormFieldModule,
     MatInputModule, MatTableModule, MatTooltipModule, MatDialogModule,
-    ScreenHeaderComponent, SongEditorForm,
+    ScreenHeaderComponent, SongEditorForm, PresenceAvatarComponent,
   ],
   template: `
     <div class="bandos-page">
@@ -460,11 +462,18 @@ export class SongEditorForm {
             <ng-container matColumnDef="title">
               <th mat-header-cell *matHeaderCellDef>Title</th>
               <td mat-cell *matCellDef="let song">
-                <div class="title-cell">
-                  <span class="song-title">{{ song.title }}</span>
-                  @if (song.audioUrl) {
-                    <mat-icon class="audio-icon" matTooltip="Has audio">music_note</mat-icon>
-                  }
+                <div class="title-cell-wrapper">
+                  <div class="title-cell">
+                    <span class="song-title">{{ song.title }}</span>
+                    @if (song.audioUrl) {
+                      <mat-icon class="audio-icon" matTooltip="Has audio">music_note</mat-icon>
+                    }
+                  </div>
+                  <div class="presence-avatars">
+                    @for (user of usersViewingEntity(song.id); track user.userId) {
+                      <presence-avatar [presence]="user"></presence-avatar>
+                    }
+                  </div>
                 </div>
                 @if (song.attachmentLabel) {
                   <div class="attachment-label">{{ song.attachmentLabel }}</div>
@@ -532,6 +541,11 @@ export class SongEditorForm {
                   <span class="song-title">{{ song.title }}</span>
                   @if (song.audioUrl) {
                     <mat-icon class="audio-icon" matTooltip="Has audio">music_note</mat-icon>
+                  }
+                </div>
+                <div class="presence-avatars">
+                  @for (user of usersViewingEntity(song.id); track user.userId) {
+                    <presence-avatar [presence]="user"></presence-avatar>
                   }
                 </div>
                 <div class="song-card-actions">
@@ -607,7 +621,11 @@ export class SongEditorForm {
     .song-row { cursor: pointer; }
     .song-row:hover td.mat-mdc-cell { background: #22222A; }
     .song-row.is-selected td.mat-mdc-cell { background: #1E1E2C; border-left-color: transparent; }
-    .title-cell { display: flex; align-items: center; gap: 8px; }
+    .title-cell-wrapper { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; width: 100%; }
+    .title-cell { display: flex; align-items: center; gap: 8px; flex: 1; min-width: 0; }
+    .presence-avatars { display: flex; align-items: center; gap: -8px; flex-shrink: 0; }
+    .presence-avatars presence-avatar { margin-left: -8px; }
+    .presence-avatars presence-avatar:first-child { margin-left: 0; }
     .song-title { font-weight: 700; }
     .audio-icon { font-size: 16px; width: 16px; height: 16px; color: #C8A77B; }
     .attachment-label { color: #C8A77B; font-size: 12px; margin-top: 4px; font-weight: 600; }
@@ -660,7 +678,8 @@ export class SongEditorForm {
     .songs-mobile { display: none; flex-direction: column; gap: 10px; }
     .song-card { background: #1D1D23; border: 1px solid #2A2A31; border-radius: 12px; padding: 12px 14px; cursor: pointer; display: flex; flex-direction: column; gap: 8px; }
     .song-card:hover { background: #22222A; }
-    .song-card-header { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+    .song-card-header { display: flex; align-items: center; gap: 8px; }
+    .song-card-header .title-cell { flex: 1; min-width: 0; }
     .song-card-actions { display: flex; gap: 4px; flex-shrink: 0; }
     .song-card-meta { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; color: #9D9DA7; font-size: 13px; }
     .meta-sep { color: #4A4A55; }
@@ -703,6 +722,7 @@ export class SongsComponent {
   private readonly ws = inject(WorkspaceController);
   private readonly snack = inject(MatSnackBar);
   private readonly dialog = inject(MatDialog);
+  private readonly presence = inject(PresenceService);
 
   query = signal('');
   workspace = computed(() => this.ws.workspace());
@@ -718,6 +738,24 @@ export class SongsComponent {
     const w = this.workspace();
     return !!w && M.wsCanEditContent(w);
   });
+
+  // Presence tracking: Map entity IDs to users viewing them
+  usersViewingByEntityId = computed(() => {
+    const map = new Map<string, UserPresence[]>();
+    this.presence.allPresences().forEach(p => {
+      if (p.viewingEntityId) {
+        if (!map.has(p.viewingEntityId)) {
+          map.set(p.viewingEntityId, []);
+        }
+        map.get(p.viewingEntityId)!.push(p);
+      }
+    });
+    return map;
+  });
+
+  // Get users viewing a specific entity
+  usersViewingEntity = (entityId: string) => this.usersViewingByEntityId().get(entityId) ?? [];
+
   displayedColumns = ['title', 'status', 'key', 'difficulty', 'duration', 'actions'];
 
   panelOpen = signal(false);

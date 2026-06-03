@@ -16,6 +16,8 @@ import { CdkDragDrop, DragDropModule } from '@angular/cdk/drag-drop';
 import { endOfWeek, isAfter, isBefore, isSameDay, startOfDay, differenceInDays } from 'date-fns';
 import { v4 as uuid } from 'uuid';
 import { WorkspaceController } from '../../core/state/workspace-controller.service';
+import { PresenceService, UserPresence } from '../../core/services/presence.service';
+import { PresenceAvatarComponent } from '../../shared/components/presence-avatar.component';
 import { ScreenHeaderComponent } from '../../shared/components/screen-header.component';
 import * as M from '../../core/models/models';
 
@@ -182,7 +184,7 @@ const PRIORITY_LANES: TaskGroup[] = [
 @Component({
   selector: 'tasks-screen',
   standalone: true,
-  imports: [CommonModule, MatButtonModule, MatCardModule, MatIconModule, MatProgressSpinnerModule, MatTooltipModule, MatDialogModule, ScreenHeaderComponent, DragDropModule, TaskEditorForm],
+  imports: [CommonModule, MatButtonModule, MatCardModule, MatIconModule, MatProgressSpinnerModule, MatTooltipModule, MatDialogModule, ScreenHeaderComponent, DragDropModule, TaskEditorForm, PresenceAvatarComponent],
   template: `
     <div class="bandos-page">
       <screen-header title="Tasks" subtitle="Plan, assign, and track band to-dos."></screen-header>
@@ -236,6 +238,11 @@ const PRIORITY_LANES: TaskGroup[] = [
                       (click)="onCardClick(t)">
                       <div class="task-header">
                         <div class="task-title">{{ t.title }}</div>
+                        <div class="presence-avatars">
+                          @for (user of usersViewingEntity(t.id); track user.userId) {
+                            <presence-avatar [presence]="user"></presence-avatar>
+                          }
+                        </div>
                         <div class="priority-indicator" [class.high]="t.priority === 'high'" [class.medium]="t.priority === 'medium'" [title]="priorityLabel(t.priority)"></div>
                       </div>
                       <div class="task-meta">
@@ -350,8 +357,11 @@ const PRIORITY_LANES: TaskGroup[] = [
       cursor: wait;
       z-index: 2;
     }
-    .task-header { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 4px; }
-    .task-title { font-weight: 700; font-size: 14px; flex: 1; }
+    .task-header { display: flex; align-items: center; gap: 8px; margin-bottom: 4px; }
+    .task-title { font-weight: 700; font-size: 14px; flex: 1; min-width: 0; }
+    .presence-avatars { display: flex; align-items: center; gap: -8px; flex-shrink: 0; }
+    .presence-avatars presence-avatar { margin-left: -8px; }
+    .presence-avatars presence-avatar:first-child { margin-left: 0; }
     .priority-indicator { width: 8px; height: 8px; border-radius: 50%; background: #9D9DA7; flex-shrink: 0; }
     .priority-indicator.medium { background: #C8A77B; }
     .priority-indicator.high { background: #EF4A35; }
@@ -385,6 +395,7 @@ const PRIORITY_LANES: TaskGroup[] = [
 export class TasksComponent {
   private readonly wsc = inject(WorkspaceController);
   private readonly snack = inject(MatSnackBar);
+  private readonly presence = inject(PresenceService);
 
   readonly panelOpen = signal(false);
   readonly panelItem = signal<M.BandTask | null>(null);
@@ -397,6 +408,23 @@ export class TasksComponent {
   ];
   readonly groupMode = signal<GroupMode>('none');
   readonly statusColumns = STATUS_COLUMNS;
+
+  // Presence tracking: Map entity IDs to users viewing them
+  usersViewingByEntityId = computed(() => {
+    const map = new Map<string, UserPresence[]>();
+    this.presence.allPresences().forEach(p => {
+      if (p.viewingEntityId) {
+        if (!map.has(p.viewingEntityId)) {
+          map.set(p.viewingEntityId, []);
+        }
+        map.get(p.viewingEntityId)!.push(p);
+      }
+    });
+    return map;
+  });
+
+  // Get users viewing a specific entity
+  usersViewingEntity = (entityId: string) => this.usersViewingByEntityId().get(entityId) ?? [];
 
   /** Tasks whose status update is in flight. Drag and edit-click are disabled while present. */
   private readonly savingTaskIds = signal(new Set<string>());

@@ -12,8 +12,10 @@ import { MatTooltipModule } from '@angular/material/tooltip';
 import { MatDialog, MatDialogModule } from '@angular/material/dialog';
 import { MatSnackBar } from '@angular/material/snack-bar';
 import { DeleteConfirmationDialog } from '../../shared/components/delete-confirmation-dialog.component';
+import { PresenceAvatarComponent } from '../../shared/components/presence-avatar.component';
 import { v4 as uuid } from 'uuid';
 import { WorkspaceController } from '../../core/state/workspace-controller.service';
+import { PresenceService, UserPresence } from '../../core/services/presence.service';
 import { ScreenHeaderComponent } from '../../shared/components/screen-header.component';
 import * as M from '../../core/models/models';
 
@@ -134,7 +136,7 @@ export class SetlistEditorForm {
 @Component({
   selector: 'setlists-screen',
   standalone: true,
-  imports: [CommonModule, MatButtonModule, MatCardModule, MatIconModule, MatTableModule, MatTooltipModule, MatDialogModule, ScreenHeaderComponent, SetlistEditorForm],
+  imports: [CommonModule, MatButtonModule, MatCardModule, MatIconModule, MatTableModule, MatTooltipModule, MatDialogModule, ScreenHeaderComponent, SetlistEditorForm, PresenceAvatarComponent],
   template: `
     <div class="bandos-page">
       <screen-header title="Setlists" [subtitle]="subtitle()"></screen-header>
@@ -151,7 +153,16 @@ export class SetlistEditorForm {
           <table mat-table [dataSource]="setlists()" class="setlists-table">
             <ng-container matColumnDef="title">
               <th mat-header-cell *matHeaderCellDef>Title</th>
-              <td mat-cell *matCellDef="let sl"><span class="setlist-title">{{ sl.title }}</span></td>
+              <td mat-cell *matCellDef="let sl">
+                <div class="title-cell-wrapper">
+                  <span class="setlist-title">{{ sl.title }}</span>
+                  <div class="presence-avatars">
+                    @for (user of usersViewingEntity(sl.id); track user.userId) {
+                      <presence-avatar [presence]="user"></presence-avatar>
+                    }
+                  </div>
+                </div>
+              </td>
             </ng-container>
 
             <ng-container matColumnDef="count">
@@ -246,7 +257,11 @@ export class SetlistEditorForm {
     .setlists-table { width: 100%; background: transparent; }
     .setlists-table th.mat-mdc-header-cell { background: #16161B; color: #9D9DA7; font-weight: 700; font-size: 12px; text-transform: uppercase; letter-spacing: 0.04em; }
     .setlists-table td.mat-mdc-cell, .setlists-table th.mat-mdc-header-cell { border-bottom-color: #2A2A31; color: #E6E6EC; }
-    .setlist-title { font-weight: 700; }
+    .title-cell-wrapper { display: flex; align-items: center; justify-content: space-between; gap: 16px; width: 100%; }
+    .setlist-title { font-weight: 700; flex: 1; min-width: 0; }
+    .presence-avatars { display: flex; align-items: center; gap: -8px; flex-shrink: 0; }
+    .presence-avatars presence-avatar { margin-left: -8px; }
+    .presence-avatars presence-avatar:first-child { margin-left: 0; }
     .actions-col { width: 110px; text-align: right; white-space: nowrap; }
     .notes-cell { max-width: 360px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: #9D9DA7; }
     .setlist-row { cursor: pointer; }
@@ -275,6 +290,7 @@ export class SetlistsComponent {
   private readonly wsc = inject(WorkspaceController);
   private readonly snack = inject(MatSnackBar);
   private readonly dialog = inject(MatDialog);
+  private readonly presence = inject(PresenceService);
 
   ws = computed(() => this.wsc.workspace());
   setlists = computed(() => this.ws()?.setlists ?? []);
@@ -284,6 +300,23 @@ export class SetlistsComponent {
   });
 
   displayedColumns = ['title', 'count', 'total', 'lastPerformed', 'performanceCount', 'actions'];
+
+  // Presence tracking: Map entity IDs to users viewing them
+  usersViewingByEntityId = computed(() => {
+    const map = new Map<string, UserPresence[]>();
+    this.presence.allPresences().forEach(p => {
+      if (p.viewingEntityId) {
+        if (!map.has(p.viewingEntityId)) {
+          map.set(p.viewingEntityId, []);
+        }
+        map.get(p.viewingEntityId)!.push(p);
+      }
+    });
+    return map;
+  });
+
+  // Get users viewing a specific entity
+  usersViewingEntity = (entityId: string) => this.usersViewingByEntityId().get(entityId) ?? [];
 
   panelOpen = signal(false);
   panelItem = signal<M.BandSetlist | null>(null);

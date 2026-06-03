@@ -9,6 +9,7 @@ import { AuthController } from '../../core/state/auth-controller.service';
 import { WorkspaceController } from '../../core/state/workspace-controller.service';
 import { BandAvatarComponent } from '../../shared/components/band-avatar.component';
 import { BandosMarkLogoComponent } from '../../shared/components/bandos-full-logo.component';
+import { ActivityFeedComponent } from '../../shared/components/activity-feed.component';
 
 interface NavItem { label: string; icon: string; route: string; color: string; premiumOnly?: boolean; }
 
@@ -18,7 +19,7 @@ interface NavItem { label: string; icon: string; route: string; color: string; p
   imports: [
     CommonModule, RouterLink, RouterLinkActive, RouterOutlet,
     MatIconModule, MatButtonModule, MatMenuModule, MatDividerModule,
-    BandAvatarComponent, BandosMarkLogoComponent,
+    BandAvatarComponent, BandosMarkLogoComponent, ActivityFeedComponent,
   ],
   template: `
     <div class="shell">
@@ -64,10 +65,14 @@ interface NavItem { label: string; icon: string; route: string; color: string; p
       <main class="content">
         <router-outlet></router-outlet>
       </main>
+
+      <aside class="activity-panel">
+        <activity-feed></activity-feed>
+      </aside>
     </div>
   `,
   styles: [`
-    .shell { display: grid; grid-template-columns: 260px 1fr; min-height: 100vh; }
+    .shell { display: grid; grid-template-columns: 260px 1fr 300px; min-height: 100vh; }
     .sidebar {
       background: #0F0F12;
       border-right: 1px solid #2A2A31;
@@ -93,6 +98,11 @@ interface NavItem { label: string; icon: string; route: string; color: string; p
     .user-button { width: 100%; justify-content: flex-start !important; gap: 10px; }
     .user-name { flex: 1; text-align: left; font-size: 13px; }
     .content { background: #0B0B0D; overflow-y: auto; min-width: 0; }
+    .activity-panel { background: #16161B; border-left: 1px solid #2A2A31; overflow: hidden; display: flex; flex-direction: column; }
+    @media (max-width: 1280px) {
+      .shell { grid-template-columns: 260px 1fr; }
+      .activity-panel { display: none; }
+    }
     @media (max-width: 880px) {
       .shell { grid-template-columns: 72px 1fr; }
       .brand-text, .user-name, .nav-item span { display: none; }
