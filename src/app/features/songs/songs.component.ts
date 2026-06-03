@@ -9,7 +9,9 @@ import { MatSelectModule } from '@angular/material/select';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatTableModule } from '@angular/material/table';
 import { MatTooltipModule } from '@angular/material/tooltip';
+import { MatDialog, MatDialogModule } from '@angular/material/dialog';
 import { MatSnackBar } from '@angular/material/snack-bar';
+import { DeleteConfirmationDialog } from '../../shared/components/delete-confirmation-dialog.component';
 import { v4 as uuid } from 'uuid';
 import { WorkspaceController } from '../../core/state/workspace-controller.service';
 import { ScreenHeaderComponent } from '../../shared/components/screen-header.component';
@@ -30,6 +32,11 @@ const COMMON_TUNINGS = [
   'DADGAD', 'Open G', 'Open D', 'Open E',
 ];
 
+const MUSICAL_KEYS = [
+  'C', 'C#', 'Db', 'D', 'D#', 'Eb', 'E', 'F', 'F#', 'Gb', 'G', 'G#', 'Ab', 'A', 'A#', 'Bb', 'B',
+  'Cm', 'C#m', 'Dbm', 'Dm', 'D#m', 'Ebm', 'Em', 'Fm', 'F#m', 'Gbm', 'Gm', 'G#m', 'Abm', 'Am', 'A#m', 'Bbm', 'Bm',
+];
+
 interface PendingAudio { file: File; bytes: ArrayBuffer; sizeBytes: number; }
 
 function formatAudioSize(bytes: number): string {
@@ -47,7 +54,7 @@ function fileExtension(name: string): string {
   standalone: true,
   imports: [
     CommonModule, ReactiveFormsModule, MatButtonModule, MatFormFieldModule, MatInputModule,
-    MatSelectModule, MatIconModule, MatProgressSpinnerModule, DecimalPipe,
+    MatSelectModule, MatIconModule, MatProgressSpinnerModule, DecimalPipe, MatDialogModule,
   ],
   template: `
     <form [formGroup]="form" class="bandos-stack">
@@ -60,6 +67,25 @@ function fileExtension(name: string): string {
           </mat-select>
         </mat-form-field>
         <mat-form-field appearance="outline" style="flex:1;"><mat-label>BPM</mat-label><input matInput type="number" formControlName="bpm" /></mat-form-field>
+      </div>
+      <div class="bandos-row">
+        <mat-form-field appearance="outline" style="flex:1;">
+          <mat-label>Key</mat-label>
+          <mat-select formControlName="key" [panelClass]="'key-select-panel'">
+            <div class="key-search-wrapper">
+              <input class="key-search-input" [value]="keySearch()" (input)="keySearch.set($any($event.target).value)" placeholder="Search keys..." />
+            </div>
+            <mat-option [value]="">None</mat-option>
+            @for (key of filteredKeys(); track key) { <mat-option [value]="key">{{ key }}</mat-option> }
+          </mat-select>
+        </mat-form-field>
+        <mat-form-field appearance="outline" style="flex:1;">
+          <mat-label>Difficulty</mat-label>
+          <mat-select formControlName="difficulty">
+            <mat-option [value]="null">None</mat-option>
+            @for (d of [1, 2, 3, 4, 5]; track d) { <mat-option [value]="d">{{ d }} - {{ difficultyLabel(d) }}</mat-option> }
+          </mat-select>
+        </mat-form-field>
       </div>
       <div class="bandos-row">
         <div class="duration-picker" style="flex:1;">
@@ -186,6 +212,12 @@ function fileExtension(name: string): string {
     .audio-meta { font-size: 12px; color: #9D9DA7; }
     .audio-actions { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
     .form-actions { display: flex; gap: 8px; padding-top: 12px; align-items: center; }
+
+    /* Key search dropdown styles */
+    .key-search-wrapper { padding: 8px; border-bottom: 1px solid #2A2A31; }
+    .key-search-input { width: 100%; padding: 8px 12px; background: #1D1D23; border: 1px solid #2A2A31; border-radius: 6px; color: #E6E6EC; font-size: 13px; font-family: inherit; }
+    .key-search-input::placeholder { color: #9D9DA7; }
+    .key-search-input:focus { outline: none; border-color: #C8A77B; background: #22222A; }
   `],
 })
 export class SongEditorForm {
@@ -199,9 +231,11 @@ export class SongEditorForm {
   private readonly fb = inject(FormBuilder);
   private readonly ws = inject(WorkspaceController);
   private readonly snack = inject(MatSnackBar);
+  private readonly dialog = inject(MatDialog);
 
   statuses = Object.values(M.SongStatus);
   acceptAudio = ALLOWED_AUDIO_EXTENSIONS.map(e => `.${e}`).join(',') + ',audio/*';
+  readonly musicalKeys = MUSICAL_KEYS;
 
   existing = computed(() => !!this.song());
   showReleaseField = computed(() => this.releases().length > 0 || !!this.song()?.releaseId);
@@ -216,6 +250,13 @@ export class SongEditorForm {
     const current = this.song()?.timeSignature?.trim();
     if (current && !COMMON_TIME_SIGNATURES.includes(current)) return [current, ...COMMON_TIME_SIGNATURES];
     return COMMON_TIME_SIGNATURES;
+  });
+
+  keySearch = signal('');
+  filteredKeys = computed(() => {
+    const query = this.keySearch().trim().toLowerCase();
+    if (!query) return MUSICAL_KEYS;
+    return MUSICAL_KEYS.filter(k => k.toLowerCase().includes(query));
   });
 
   readonly minuteOptions = Array.from({ length: 31 }, (_, i) => i);
@@ -254,6 +295,8 @@ export class SongEditorForm {
     notes: [''],
     lyrics: [''],
     attachmentLabel: [''],
+    key: [''],
+    difficulty: [null as number | null],
   });
 
   constructor() {
@@ -270,6 +313,8 @@ export class SongEditorForm {
         notes: s?.notes ?? '',
         lyrics: s?.lyrics ?? '',
         attachmentLabel: s?.attachmentLabel ?? '',
+        key: s?.key ?? '',
+        difficulty: s?.difficulty ?? null,
       });
       const dur = this._parseDuration(s?.duration ?? '3:00');
       this.durationMins.set(dur.m);
@@ -281,6 +326,9 @@ export class SongEditorForm {
   }
 
   statusLabel(s: M.SongStatus) { return M.SongStatusLabel[s]; }
+  difficultyLabel(d: number): string {
+    return ['', 'Easy', 'Intermediate', 'Medium', 'Hard', 'Expert'][d] ?? '';
+  }
   formatSize(b: number) { return formatAudioSize(b); }
 
   async onFilePicked(files: FileList | null) {
@@ -325,12 +373,16 @@ export class SongEditorForm {
       timeSignature: v.timeSignature, status: v.status, releaseId: v.releaseId,
       lyrics: v.lyrics, notes: v.notes,
       attachmentLabel: v.attachmentLabel.trim() ? v.attachmentLabel.trim() : null,
+      key: v.key.trim() ? v.key.trim() : undefined,
+      difficulty: v.difficulty ?? undefined,
       updatedAt: new Date(),
     } : {
       id: uuid(), title: v.title, tuning: v.tuning, bpm: Number(v.bpm), duration: v.duration,
       timeSignature: v.timeSignature, sortOrder: 0, status: v.status, releaseId: v.releaseId,
       lyrics: v.lyrics, notes: v.notes,
       attachmentLabel: v.attachmentLabel.trim() ? v.attachmentLabel.trim() : null,
+      key: v.key.trim() ? v.key.trim() : undefined,
+      difficulty: v.difficulty ?? undefined,
       updatedAt: new Date(),
     };
     this.uploading.set(true);
@@ -356,8 +408,16 @@ export class SongEditorForm {
   async tryDelete() {
     const s = this.song();
     if (!s) return;
-    const ok = window.confirm(`Delete "${s.title}"? This can't be undone.`);
-    if (!ok) return;
+    const dialogRef = this.dialog.open(DeleteConfirmationDialog, {
+      data: {
+        title: 'Delete Song?',
+        item: s.title,
+        message: 'This will permanently remove the song from your library.',
+      },
+      width: '360px',
+    });
+    const confirmed = await dialogRef.afterClosed().toPromise();
+    if (!confirmed) return;
     try {
       await this.ws.deleteSong(s.id);
       this.snack.open('Song deleted.', 'OK', { duration: 1800 });
@@ -375,7 +435,7 @@ export class SongEditorForm {
   standalone: true,
   imports: [
     CommonModule, MatButtonModule, MatIconModule, MatFormFieldModule,
-    MatInputModule, MatTableModule, MatTooltipModule,
+    MatInputModule, MatTableModule, MatTooltipModule, MatDialogModule,
     ScreenHeaderComponent, SongEditorForm,
   ],
   template: `
@@ -419,14 +479,24 @@ export class SongEditorForm {
               </td>
             </ng-container>
 
-            <ng-container matColumnDef="tuning">
-              <th mat-header-cell *matHeaderCellDef>Tuning</th>
-              <td mat-cell *matCellDef="let song">{{ song.tuning }}</td>
+            <ng-container matColumnDef="key">
+              <th mat-header-cell *matHeaderCellDef>Key</th>
+              <td mat-cell *matCellDef="let song">{{ song.key ?? '—' }}</td>
             </ng-container>
 
-            <ng-container matColumnDef="bpm">
-              <th mat-header-cell *matHeaderCellDef>BPM</th>
-              <td mat-cell *matCellDef="let song">{{ song.bpm }}</td>
+            <ng-container matColumnDef="difficulty">
+              <th mat-header-cell *matHeaderCellDef>Difficulty</th>
+              <td mat-cell *matCellDef="let song">
+                @if (song.difficulty) {
+                  <div class="difficulty-dots" [attr.data-difficulty]="song.difficulty">
+                    @for (d of [1, 2, 3, 4, 5]; track d) {
+                      <span class="dot" [class.filled]="d <= song.difficulty"></span>
+                    }
+                  </div>
+                } @else {
+                  <span style="color:#9D9DA7;">—</span>
+                }
+              </td>
             </ng-container>
 
             <ng-container matColumnDef="duration">
@@ -478,12 +548,23 @@ export class SongEditorForm {
               <div class="song-card-meta">
                 <span class="bandos-pill">{{ statusLabel(song.status) }}</span>
                 <span class="meta-sep">·</span>
-                <span>{{ song.tuning }}</span>
-                <span class="meta-sep">·</span>
-                <span>{{ song.bpm }} BPM</span>
-                <span class="meta-sep">·</span>
                 <span>{{ song.duration }}</span>
+                @if (song.key) {
+                  <span class="meta-sep">·</span>
+                  <span>{{ song.key }}</span>
+                }
+                @if (song.difficulty) {
+                  <span class="meta-sep">·</span>
+                  <span>Level {{ song.difficulty }}</span>
+                }
+                @if (song.playCount && song.playCount > 0) {
+                  <span class="meta-sep">·</span>
+                  <span class="play-count">Performed {{ song.playCount }}×</span>
+                }
               </div>
+              @if (song.lastPlayedAt) {
+                <div class="song-last-played">Last: {{ song.lastPlayedAt | date:'shortDate' }}</div>
+              }
             </div>
           }
         </div>
@@ -531,6 +612,20 @@ export class SongEditorForm {
     .audio-icon { font-size: 16px; width: 16px; height: 16px; color: #C8A77B; }
     .attachment-label { color: #C8A77B; font-size: 12px; margin-top: 4px; font-weight: 600; }
     .actions-col { width: 56px; text-align: right; white-space: nowrap; }
+
+    /* ── Difficulty indicator ── */
+    .difficulty-dots { display: flex; gap: 4px; align-items: center; }
+    .difficulty-dots .dot { display: inline-block; width: 6px; height: 6px; border-radius: 50%; background: #4A4A55; }
+    .difficulty-dots .dot.filled { background: #C8A77B; }
+    .difficulty-dots[data-difficulty="1"] { color: #22C55E; }
+    .difficulty-dots[data-difficulty="2"] { color: #84CC16; }
+    .difficulty-dots[data-difficulty="3"] { color: #FBBF24; }
+    .difficulty-dots[data-difficulty="4"] { color: #FB923C; }
+    .difficulty-dots[data-difficulty="5"] { color: #EF4A35; }
+
+    /* ── Mobile card enhancements ── */
+    .song-last-played { font-size: 12px; color: #9D9DA7; margin-top: 4px; }
+    .play-count { color: #C8A77B; font-weight: 600; }
 
     /* ── Side panel ── */
     .panel-backdrop {
@@ -607,6 +702,7 @@ export class SongEditorForm {
 export class SongsComponent {
   private readonly ws = inject(WorkspaceController);
   private readonly snack = inject(MatSnackBar);
+  private readonly dialog = inject(MatDialog);
 
   query = signal('');
   workspace = computed(() => this.ws.workspace());
@@ -622,7 +718,7 @@ export class SongsComponent {
     const w = this.workspace();
     return !!w && M.wsCanEditContent(w);
   });
-  displayedColumns = ['title', 'status', 'tuning', 'bpm', 'duration', 'actions'];
+  displayedColumns = ['title', 'status', 'key', 'difficulty', 'duration', 'actions'];
 
   panelOpen = signal(false);
   panelSong = signal<M.Song | null>(null);
@@ -661,8 +757,16 @@ export class SongsComponent {
 
   async confirmDelete(song: M.Song) {
     if (!this.canEdit()) return;
-    const ok = window.confirm(`Delete "${song.title}"? This can't be undone.`);
-    if (!ok) return;
+    const dialogRef = this.dialog.open(DeleteConfirmationDialog, {
+      data: {
+        title: 'Delete Song?',
+        item: song.title,
+        message: 'This will permanently remove the song from your library.',
+      },
+      width: '360px',
+    });
+    const confirmed = await dialogRef.afterClosed().toPromise();
+    if (!confirmed) return;
     if (this.panelSong()?.id === song.id) this.closePanel();
     try {
       await this.ws.deleteSong(song.id);

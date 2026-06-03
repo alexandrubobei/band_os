@@ -118,6 +118,9 @@ export const SongJson = {
       audioContentType: s.audioContentType ?? null, audioSizeBytes: s.audioSizeBytes ?? null,
       audioUploadedAt: s.audioUploadedAt?.toISOString() ?? null,
       audioUploadedByUid: s.audioUploadedByUid ?? null,
+      key: s.key ?? null, difficulty: s.difficulty ?? null,
+      lastPlayedAt: s.lastPlayedAt?.toISOString() ?? null,
+      playCount: s.playCount ?? null,
       updatedAt: s.updatedAt.toISOString(),
     };
   },
@@ -133,6 +136,10 @@ export const SongJson = {
       audioSizeBytes: j.audioSizeBytes != null ? Number(j.audioSizeBytes) : null,
       audioUploadedAt: parseDateOrNull(j.audioUploadedAt),
       audioUploadedByUid: j.audioUploadedByUid ?? null,
+      key: j.key ?? undefined,
+      difficulty: j.difficulty != null ? Number(j.difficulty) : undefined,
+      lastPlayedAt: parseDateOrNull(j.lastPlayedAt),
+      playCount: j.playCount != null ? Number(j.playCount) : undefined,
       updatedAt: parseDate(j.updatedAt),
     };
   },

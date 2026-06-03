@@ -10,9 +10,10 @@ import { MatSelectModule } from '@angular/material/select';
 import { MatIconModule } from '@angular/material/icon';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatTooltipModule } from '@angular/material/tooltip';
+import { MatDialogModule } from '@angular/material/dialog';
 import { MatSnackBar } from '@angular/material/snack-bar';
 import { CdkDragDrop, DragDropModule } from '@angular/cdk/drag-drop';
-import { endOfWeek, isAfter, isBefore, isSameDay, startOfDay } from 'date-fns';
+import { endOfWeek, isAfter, isBefore, isSameDay, startOfDay, differenceInDays } from 'date-fns';
 import { v4 as uuid } from 'uuid';
 import { WorkspaceController } from '../../core/state/workspace-controller.service';
 import { ScreenHeaderComponent } from '../../shared/components/screen-header.component';
@@ -181,7 +182,7 @@ const PRIORITY_LANES: TaskGroup[] = [
 @Component({
   selector: 'tasks-screen',
   standalone: true,
-  imports: [CommonModule, MatButtonModule, MatCardModule, MatIconModule, MatProgressSpinnerModule, MatTooltipModule, ScreenHeaderComponent, DragDropModule, TaskEditorForm],
+  imports: [CommonModule, MatButtonModule, MatCardModule, MatIconModule, MatProgressSpinnerModule, MatTooltipModule, MatDialogModule, ScreenHeaderComponent, DragDropModule, TaskEditorForm],
   template: `
     <div class="bandos-page">
       <screen-header title="Tasks" subtitle="Plan, assign, and track band to-dos."></screen-header>
@@ -233,13 +234,23 @@ const PRIORITY_LANES: TaskGroup[] = [
                       (cdkDragEnded)="onDragEnded()"
                       class="task-card"
                       (click)="onCardClick(t)">
-                      <div class="task-title">{{ t.title }}</div>
-                      <div class="task-meta">
-                        {{ t.assigneeDisplayName || 'Unassigned' }}
-                        @if (t.dueDate) { · due {{ t.dueDate | date:'mediumDate' }} }
-                        @if (songTitleFor(t.songId); as st) { · <span class="song-tag">{{ st }}</span> }
+                      <div class="task-header">
+                        <div class="task-title">{{ t.title }}</div>
+                        <div class="priority-indicator" [class.high]="t.priority === 'high'" [class.medium]="t.priority === 'medium'" [title]="priorityLabel(t.priority)"></div>
                       </div>
-                      <div class="priority" [class.high]="t.priority === 'high'" [class.medium]="t.priority === 'medium'">{{ priorityLabel(t.priority) }}</div>
+                      <div class="task-meta">
+                        <span>{{ t.assigneeDisplayName || 'Unassigned' }}</span>
+                        @if (t.dueDate) {
+                          <span class="meta-sep">·</span>
+                          <span class="due-date" [class.due-soon]="dueDateDaysLeft(t.dueDate) <= 1" [class.due-warning]="dueDateDaysLeft(t.dueDate) > 1 && dueDateDaysLeft(t.dueDate) <= 6">
+                            @if (dueDateDaysLeft(t.dueDate) <= 6) { Due in {{ dueDateDaysLeft(t.dueDate) + 1 }}d } @else { Due {{ t.dueDate | date:'short' }} }
+                          </span>
+                        }
+                        @if (songTitleFor(t.songId); as st) {
+                          <span class="meta-sep">·</span>
+                          <span class="song-tag">{{ st }}</span>
+                        }
+                      </div>
                       @if (isSaving(t.id)) {
                         <div class="saving-overlay">
                           <mat-spinner diameter="22" strokeWidth="3"></mat-spinner>
@@ -339,11 +350,17 @@ const PRIORITY_LANES: TaskGroup[] = [
       cursor: wait;
       z-index: 2;
     }
-    .task-title { font-weight: 700; font-size: 14px; }
-    .task-meta { color: #9D9DA7; font-size: 11px; margin-top: 4px; }
-    .priority { display: inline-block; margin-top: 8px; padding: 2px 8px; border-radius: 999px; font-size: 11px; background: #1D1D23; color: #9D9DA7; }
-    .priority.medium { color: #C8A77B; background: rgba(200,167,123,0.1); }
-    .priority.high { color: #EF4A35; background: rgba(239,74,53,0.12); }
+    .task-header { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 4px; }
+    .task-title { font-weight: 700; font-size: 14px; flex: 1; }
+    .priority-indicator { width: 8px; height: 8px; border-radius: 50%; background: #9D9DA7; flex-shrink: 0; }
+    .priority-indicator.medium { background: #C8A77B; }
+    .priority-indicator.high { background: #EF4A35; }
+    .task-meta { display: flex; align-items: center; flex-wrap: wrap; gap: 4px; color: #9D9DA7; font-size: 10px; margin-top: 4px; }
+    .meta-sep { color: #4A4A55; }
+    .due-date { padding: 2px 6px; border-radius: 4px; background: #1D1D23; color: #9D9DA7; }
+    .due-date.due-warning { background: rgba(251, 191, 36, 0.15); color: #FBBF24; }
+    .due-date.due-soon { background: rgba(239, 74, 53, 0.15); color: #EF4A35; }
+    .song-tag { color: #C8A77B; }
 
     .cdk-drag-preview { box-shadow: 0 10px 30px rgba(0,0,0,0.5); border-radius: 10px; cursor: grabbing; }
     .cdk-drag-placeholder { opacity: 0.25; }
@@ -432,6 +449,12 @@ export class TasksComponent {
   songTitleFor(songId: string | null): string | null {
     if (!songId) return null;
     return this.songsById().get(songId)?.title ?? null;
+  }
+
+  dueDateDaysLeft(dueDate: Date): number {
+    const today = startOfDay(new Date());
+    const due = startOfDay(dueDate);
+    return differenceInDays(due, today);
   }
 
   onCardClick(t: M.BandTask) {

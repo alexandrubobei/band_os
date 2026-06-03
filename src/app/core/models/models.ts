@@ -202,6 +202,11 @@ export interface Song {
   audioUploadedAt?: Date | null;
   audioUploadedByUid?: string | null;
   updatedAt: Date;
+  // New fields for performance tracking and enrichment
+  key?: string; // Musical key (C, D, E, Am, etc.)
+  difficulty?: number; // 1-5 scale for learning/playing difficulty
+  lastPlayedAt?: Date | null; // When song was last in a performed setlist
+  playCount?: number; // Total times performed
 }
 
 export function songHasAudio(song: Song): boolean {
@@ -247,6 +252,9 @@ export interface BandEvent {
   location: string;
   notes: string;
   checklist: EventChecklistItem[];
+  // New fields for setlist tracking
+  linkedSetlistId?: string | null; // Which setlist was performed at this event
+  performedAt?: Date | null; // When performance actually occurred (may differ from startAt)
 }
 
 export function eventOpenChecklistCount(e: BandEvent): number {
@@ -271,6 +279,8 @@ export interface BandTask {
   createdByUid?: string | null;
   assigneeUid?: string | null;
   updatedAt?: Date | null;
+  // New field for rich task display
+  assigneeUser?: BandMember; // Full member object for display
 }
 
 export interface BandSetlistItem {
@@ -289,6 +299,10 @@ export interface BandSetlist {
   items: BandSetlistItem[];
   notes: string;
   updatedAt: Date;
+  // New fields for performance tracking and display
+  performanceCount?: number; // How many times this setlist was performed
+  lastPerformedAt?: Date | null; // When this setlist was last performed
+  totalDuration?: string; // Pre-calculated total duration (cached for UI)
 }
 
 export function parseBandDurationToSeconds(value: string): number {

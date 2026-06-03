@@ -9,7 +9,9 @@ import { MatSelectModule } from '@angular/material/select';
 import { MatIconModule } from '@angular/material/icon';
 import { MatTableModule } from '@angular/material/table';
 import { MatTooltipModule } from '@angular/material/tooltip';
+import { MatDialog, MatDialogModule } from '@angular/material/dialog';
 import { MatSnackBar } from '@angular/material/snack-bar';
+import { DeleteConfirmationDialog } from '../../shared/components/delete-confirmation-dialog.component';
 import { v4 as uuid } from 'uuid';
 import { WorkspaceController } from '../../core/state/workspace-controller.service';
 import { ScreenHeaderComponent } from '../../shared/components/screen-header.component';
@@ -132,7 +134,7 @@ export class SetlistEditorForm {
 @Component({
   selector: 'setlists-screen',
   standalone: true,
-  imports: [CommonModule, MatButtonModule, MatCardModule, MatIconModule, MatTableModule, MatTooltipModule, ScreenHeaderComponent, SetlistEditorForm],
+  imports: [CommonModule, MatButtonModule, MatCardModule, MatIconModule, MatTableModule, MatTooltipModule, MatDialogModule, ScreenHeaderComponent, SetlistEditorForm],
   template: `
     <div class="bandos-page">
       <screen-header title="Setlists" [subtitle]="subtitle()"></screen-header>
@@ -162,6 +164,16 @@ export class SetlistEditorForm {
               <td mat-cell *matCellDef="let sl">{{ totalLabel(sl) }}</td>
             </ng-container>
 
+            <ng-container matColumnDef="lastPerformed">
+              <th mat-header-cell *matHeaderCellDef>Last Used</th>
+              <td mat-cell *matCellDef="let sl">{{ sl.lastPerformedAt ? (sl.lastPerformedAt | date:'shortDate') : '—' }}</td>
+            </ng-container>
+
+            <ng-container matColumnDef="performanceCount">
+              <th mat-header-cell *matHeaderCellDef>Uses</th>
+              <td mat-cell *matCellDef="let sl">{{ sl.performanceCount ?? 0 }}</td>
+            </ng-container>
+
             <ng-container matColumnDef="notes">
               <th mat-header-cell *matHeaderCellDef>Notes</th>
               <td mat-cell *matCellDef="let sl" class="notes-cell">{{ sl.notes || '—' }}</td>
@@ -189,7 +201,8 @@ export class SetlistEditorForm {
           @for (sl of setlists(); track sl.id) {
             <mat-card (click)="openPanel(sl)" class="setlist-card">
               <h3>{{ sl.title }}</h3>
-              <div class="meta">{{ sl.items.length }} songs · {{ totalLabel(sl) }}</div>
+              <div class="meta">{{ sl.items.length }} songs · {{ totalLabel(sl) }} @if (sl.performanceCount && sl.performanceCount > 0) { · {{ sl.performanceCount }}× used }</div>
+              @if (sl.lastPerformedAt) { <div class="meta-secondary">Last: {{ sl.lastPerformedAt | date:'shortDate' }}</div> }
               @if (sl.notes) { <div class="notes">{{ sl.notes }}</div> }
             </mat-card>
           }
@@ -225,6 +238,7 @@ export class SetlistEditorForm {
   styles: [`
     h3 { margin: 0 0 6px; font-weight: 800; font-size: 16px; }
     .meta { color: #9D9DA7; font-size: 12px; }
+    .meta-secondary { color: #6B6B77; font-size: 11px; margin-top: 4px; }
     .notes { color: #C7C7CF; font-size: 13px; margin-top: 8px; }
     .setlist-card { cursor: pointer; }
 
@@ -260,6 +274,7 @@ export class SetlistEditorForm {
 export class SetlistsComponent {
   private readonly wsc = inject(WorkspaceController);
   private readonly snack = inject(MatSnackBar);
+  private readonly dialog = inject(MatDialog);
 
   ws = computed(() => this.wsc.workspace());
   setlists = computed(() => this.ws()?.setlists ?? []);
@@ -268,7 +283,7 @@ export class SetlistsComponent {
     return M.wsIsFree(w) ? `Free plan · ${w.setlists.length} of ${M.wsMaxSetlists(w)} setlists` : `${w.setlists.length} setlists`;
   });
 
-  displayedColumns = ['title', 'count', 'total', 'notes', 'actions'];
+  displayedColumns = ['title', 'count', 'total', 'lastPerformed', 'performanceCount', 'actions'];
 
   panelOpen = signal(false);
   panelItem = signal<M.BandSetlist | null>(null);
@@ -303,15 +318,31 @@ export class SetlistsComponent {
   async onPanelDelete() {
     const sl = this.panelItem();
     if (!sl) return;
-    const ok = window.confirm(`Delete "${sl.title}"? This can't be undone.`);
-    if (!ok) return;
+    const dialogRef = this.dialog.open(DeleteConfirmationDialog, {
+      data: {
+        title: 'Delete Setlist?',
+        item: sl.title,
+        message: 'This will permanently remove the setlist.',
+      },
+      width: '360px',
+    });
+    const confirmed = await dialogRef.afterClosed().toPromise();
+    if (!confirmed) return;
     this.closePanel();
     await this.deleteSetlistSafe(sl.id, sl.title);
   }
 
   async confirmDelete(sl: M.BandSetlist) {
-    const ok = window.confirm(`Delete "${sl.title}"? This can't be undone.`);
-    if (!ok) return;
+    const dialogRef = this.dialog.open(DeleteConfirmationDialog, {
+      data: {
+        title: 'Delete Setlist?',
+        item: sl.title,
+        message: 'This will permanently remove the setlist.',
+      },
+      width: '360px',
+    });
+    const confirmed = await dialogRef.afterClosed().toPromise();
+    if (!confirmed) return;
     if (this.panelItem()?.id === sl.id) this.closePanel();
     await this.deleteSetlistSafe(sl.id, sl.title);
   }
