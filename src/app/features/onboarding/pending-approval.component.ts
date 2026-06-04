@@ -29,8 +29,8 @@ import { AsyncState } from '../../core/state/async-state';
     </div>
   `,
   styles: [`
-    .wrap { min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 24px; background: #0B0B0D; }
-    .card { max-width: 480px; width: 100%; background: #17171B; border: 1px solid #2A2A31; border-radius: 16px; padding: 28px; }
+    .wrap { min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 24px; background: #14141A; }
+    .card { max-width: 480px; width: 100%; background: #20202A; border: 1px solid #383842; border-radius: 16px; padding: 28px; }
     h1 { margin: 0 0 8px; font-size: 22px; font-weight: 800; }
     .bandos-muted { color: #9D9DA7; }
   `],

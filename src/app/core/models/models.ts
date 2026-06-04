@@ -587,3 +587,49 @@ export const ActionResult = {
     return { isSuccess: true, message, joinWorkspaceOutcome: outcome };
   },
 };
+
+// ─── Messaging ───────────────────────────────────────────────
+export type ConversationKind = 'channel' | 'dm';
+
+/** A band-wide chat channel (e.g. #general). */
+export interface ChatChannel {
+  id: string;
+  name: string;
+  description?: string | null;
+  isDefault?: boolean;
+  createdAt: Date;
+  createdBy: string;
+  /** Monotonic counter — never decremented — used for cheap unread math. */
+  messageCount: number;
+  lastMessageAt?: Date | null;
+  lastMessageText?: string | null;
+  lastMessageBy?: string | null;
+}
+
+/** A 1:1 direct-message conversation between two members. */
+export interface DmConversation {
+  id: string;            // deterministic, sorted "uidA__uidB"
+  participants: string[];
+  createdAt: Date;
+  messageCount: number;
+  lastMessageAt?: Date | null;
+  lastMessageText?: string | null;
+  lastMessageBy?: string | null;
+}
+
+/** A single chat message in a channel or DM. */
+export interface ChatMessage {
+  id: string;
+  authorId: string;
+  authorName: string;
+  text: string;
+  createdAt: Date;
+  editedAt?: Date | null;
+  /** emoji -> list of userIds who reacted with it. */
+  reactions?: Record<string, string[]>;
+}
+
+/** Deterministic DM conversation id from two user ids (order-independent). */
+export function dmConversationId(a: string, b: string): string {
+  return [a, b].sort().join('__');
+}

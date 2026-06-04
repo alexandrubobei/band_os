@@ -1,4 +1,4 @@
-import { Component, computed, inject } from '@angular/core';
+import { Component, computed, effect, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { RouterLink, RouterLinkActive, RouterOutlet, Router } from '@angular/router';
 import { MatIconModule } from '@angular/material/icon';
@@ -10,6 +10,7 @@ import { WorkspaceController } from '../../core/state/workspace-controller.servi
 import { BandAvatarComponent } from '../../shared/components/band-avatar.component';
 import { BandosMarkLogoComponent } from '../../shared/components/bandos-full-logo.component';
 import { ActivityFeedComponent } from '../../shared/components/activity-feed.component';
+import { MessagingService } from '../../core/services/messaging.service';
 
 interface NavItem { label: string; icon: string; route: string; color: string; premiumOnly?: boolean; }
 
@@ -40,6 +41,9 @@ interface NavItem { label: string; icon: string; route: string; color: string; p
               class="nav-item">
               <mat-icon [style.color]="item.color">{{ item.icon }}</mat-icon>
               <span>{{ item.label }}</span>
+              @if (item.route === 'messages' && messagingUnread()) {
+                <span class="nav-badge">{{ messagingUnread() }}</span>
+              }
             </a>
           }
         </nav>
@@ -75,7 +79,7 @@ interface NavItem { label: string; icon: string; route: string; color: string; p
     .shell { display: grid; grid-template-columns: 260px 1fr 420px; min-height: 100vh; }
     .sidebar {
       background: #0F0F12;
-      border-right: 1px solid #2A2A31;
+      border-right: 1px solid #383842;
       display: flex;
       flex-direction: column;
       padding: 16px;
@@ -91,14 +95,15 @@ interface NavItem { label: string; icon: string; route: string; color: string; p
       padding: 10px 12px; border-radius: 10px; color: #C7C7CF;
       text-decoration: none; font-size: 13px; font-weight: 600;
     }
-    .nav-item:hover { background: #17171B; color: #F6F1E8; }
+    .nav-item:hover { background: #20202A; color: #CDCDD3; }
     .nav-item.active { background: rgba(239, 74, 53, 0.12); color: #EF4A35; }
     .nav-item mat-icon { font-size: 18px; width: 18px; height: 18px; }
-    .sidebar-footer { border-top: 1px solid #2A2A31; padding-top: 12px; }
+    .nav-badge { margin-left: auto; background: #EF4A35; color: #fff; font-size: 10px; font-weight: 800; min-width: 18px; height: 18px; padding: 0 5px; border-radius: 999px; display: inline-flex; align-items: center; justify-content: center; }
+    .sidebar-footer { border-top: 1px solid #383842; padding-top: 12px; }
     .user-button { width: 100%; justify-content: flex-start !important; gap: 10px; }
     .user-name { flex: 1; text-align: left; font-size: 13px; }
-    .content { background: #0B0B0D; overflow-y: auto; min-width: 0; }
-    .activity-panel { background: #16161B; border-left: 1px solid #2A2A31; overflow: hidden; display: flex; flex-direction: column; }
+    .content { background: #14141A; overflow-y: auto; min-width: 0; }
+    .activity-panel { background: #16161B; border-left: 1px solid #383842; overflow: hidden; display: flex; flex-direction: column; }
     @media (max-width: 1280px) {
       .shell { grid-template-columns: 260px 1fr; }
       .activity-panel { display: none; }
@@ -113,6 +118,18 @@ export class AppShellComponent {
   private readonly auth = inject(AuthController);
   private readonly ws = inject(WorkspaceController);
   private readonly router = inject(Router);
+  private readonly messaging = inject(MessagingService);
+
+  readonly messagingUnread = this.messaging.totalUnread;
+
+  constructor() {
+    // Track messaging workspace-wide so the nav unread badge stays live everywhere.
+    effect(() => {
+      const w = this.ws.workspace();
+      if (w) this.messaging.startTracking(w.id);
+      else this.messaging.stopTracking();
+    }, { allowSignalWrites: true });
+  }
 
   items: NavItem[] = [
     { label: 'Dashboard', icon: 'dashboard',              route: 'dashboard', color: '#60A5FA' },
@@ -120,6 +137,7 @@ export class AppShellComponent {
     { label: 'Setlists',  icon: 'queue_music',            route: 'setlists',  color: '#34D399' },
     { label: 'Calendar',  icon: 'event',                  route: 'calendar',  color: '#FBBF24' },
     { label: 'Tasks',     icon: 'check_box',              route: 'tasks',     color: '#FB923C' },
+    { label: 'Messages',  icon: 'forum',                 route: 'messages',  color: '#818CF8' },
     { label: 'Contacts',  icon: 'contacts',               route: 'contacts',  color: '#F472B6' },
     { label: 'Riders',    icon: 'tune',                   route: 'riders',    color: '#22D3EE' },
     { label: 'Finances',  icon: 'account_balance_wallet', route: 'finances',  color: '#4ADE80' },

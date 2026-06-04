@@ -60,12 +60,12 @@ export interface DeleteConfirmationData {
       margin: 0 0 12px;
       font-size: 18px;
       font-weight: 800;
-      color: #F6F1E8;
+      color: #CDCDD3;
     }
     .dialog-item {
       font-size: 15px;
       font-weight: 700;
-      color: #E6E6EC;
+      color: #CDCDD3;
       margin-bottom: 8px;
       word-break: break-word;
     }
@@ -83,7 +83,7 @@ export interface DeleteConfirmationData {
     }
     .impact-item {
       font-size: 12px;
-      color: #E6E6EC;
+      color: #CDCDD3;
       margin: 4px 0;
       padding-left: 16px;
       position: relative;

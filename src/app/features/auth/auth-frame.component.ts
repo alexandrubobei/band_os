@@ -20,7 +20,7 @@ import { BandosFullLogoComponent } from '../../shared/components/bandos-full-log
   styles: [`
     .wrap { min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 24px; background: #050506; }
     .card {
-      width: 100%; max-width: 440px; background: #17171B; border: 1px solid #2A2A31;
+      width: 100%; max-width: 440px; background: #20202A; border: 1px solid #383842;
       border-radius: 16px; padding: 28px; display: flex; flex-direction: column; gap: 16px;
     }
     .logo { display: flex; justify-content: center; margin-bottom: 4px; }

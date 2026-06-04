@@ -67,7 +67,7 @@ import { DEMO_BAND_NAME, DEMO_GENRE, DEMO_INVITE_CODE } from '../../core/demo/de
     </div>
   `,
   styles: [`
-    .wrap { min-height: 100vh; display: flex; justify-content: center; padding: 24px; background: #0B0B0D; }
+    .wrap { min-height: 100vh; display: flex; justify-content: center; padding: 24px; background: #14141A; }
     .container { width: 100%; max-width: 460px; display: flex; flex-direction: column; gap: 14px; }
     .title-sm { font-size: 14px; color: #9D9DA7; }
     h1 { font-size: 30px; font-weight: 800; margin: 4px 0; }

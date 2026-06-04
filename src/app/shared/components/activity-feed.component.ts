@@ -2,7 +2,6 @@ import { Component, inject, computed, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { MatIconModule } from '@angular/material/icon';
 import { MatButtonModule } from '@angular/material/button';
-import { MatButtonToggleModule } from '@angular/material/button-toggle';
 import { MatChipsModule } from '@angular/material/chips';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { ActivityLogService, ActivityAction } from '../../core/services/activity-log.service';
@@ -61,12 +60,12 @@ import { Router } from '@angular/router';
       flex-direction: column;
       height: 100%;
       background: #16161B;
-      color: #E6E6EC;
+      color: #CDCDD3;
     }
 
     .activity-feed-header {
       padding: 16px;
-      border-bottom: 1px solid #2A2A31;
+      border-bottom: 1px solid #383842;
       flex-shrink: 0;
     }
 
@@ -74,12 +73,12 @@ import { Router } from '@angular/router';
       margin: 0;
       font-size: 14px;
       font-weight: 700;
-      color: #E6E6EC;
+      color: #CDCDD3;
     }
 
     .activity-filters {
       padding: 12px 16px;
-      border-bottom: 1px solid #2A2A31;
+      border-bottom: 1px solid #383842;
       flex-shrink: 0;
     }
 
@@ -97,7 +96,7 @@ import { Router } from '@angular/router';
       font-weight: 600;
       height: 36px;
       padding: 0 12px;
-      border: 1px solid #2A2A31;
+      border: 1px solid #383842;
       border-right: none;
       background: #1D1D23;
       color: #9D9DA7;
@@ -116,7 +115,7 @@ import { Router } from '@angular/router';
 
     .filter-chip:last-child {
       border-radius: 0 6px 6px 0;
-      border-right: 1px solid #2A2A31;
+      border-right: 1px solid #383842;
     }
 
     .filter-chip:hover:not(.active) {
@@ -149,7 +148,7 @@ import { Router } from '@angular/router';
       display: flex;
       gap: 12px;
       padding: 12px;
-      border: 1px solid #2A2A31;
+      border: 1px solid #383842;
       border-radius: 8px;
       margin-bottom: 8px;
       background: #1D1D23;
@@ -208,7 +207,7 @@ import { Router } from '@angular/router';
     .activity-text {
       font-size: 12px;
       line-height: 1.4;
-      color: #E6E6EC;
+      color: #CDCDD3;
       margin-bottom: 4px;
       display: flex;
       flex-wrap: wrap;
@@ -225,7 +224,7 @@ import { Router } from '@angular/router';
     }
 
     .activity-entity {
-      color: #E6E6EC;
+      color: #CDCDD3;
       font-weight: 600;
       word-break: break-word;
     }
@@ -247,19 +246,19 @@ import { Router } from '@angular/router';
     }
 
     .type-song {
-      color: #E6E6EC;
+      color: #CDCDD3;
     }
 
     .type-setlist {
-      color: #E6E6EC;
+      color: #CDCDD3;
     }
 
     .type-event {
-      color: #E6E6EC;
+      color: #CDCDD3;
     }
 
     .type-task {
-      color: #E6E6EC;
+      color: #CDCDD3;
     }
 
     .type-member {
@@ -280,7 +279,7 @@ import { Router } from '@angular/router';
     }
 
     .activity-timeline::-webkit-scrollbar-thumb {
-      background: #2A2A31;
+      background: #383842;
       border-radius: 3px;
     }
 

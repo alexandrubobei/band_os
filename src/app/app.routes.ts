@@ -45,6 +45,7 @@ export const routes: Routes = [
       { path: 'setlists', loadComponent: () => import('./features/setlists/setlists.component').then(m => m.SetlistsComponent) },
       { path: 'tasks', loadComponent: () => import('./features/tasks/tasks.component').then(m => m.TasksComponent) },
       { path: 'calendar', loadComponent: () => import('./features/calendar/calendar.component').then(m => m.CalendarComponent) },
+      { path: 'messages', loadComponent: () => import('./features/messages/messages.component').then(m => m.MessagesComponent) },
       { path: 'contacts', loadComponent: () => import('./features/contacts/contacts.component').then(m => m.ContactsComponent) },
       { path: 'riders', loadComponent: () => import('./features/riders/riders.component').then(m => m.RidersComponent) },
       { path: 'finances', loadComponent: () => import('./features/finances/finances.component').then(m => m.FinancesComponent) },

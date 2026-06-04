@@ -4,11 +4,11 @@
 
 $bandos-accent: #EF4A35;
 $bandos-secondary: #C8A77B;
-$bandos-bg: #0B0B0D;
-$bandos-card: #17171B;
+$bandos-bg: #14141A;
+$bandos-card: #20202A;
 $bandos-field: #1D1D23;
-$bandos-stroke: #2A2A31;
-$bandos-text: #F6F1E8;
+$bandos-stroke: #383842;
+$bandos-text: #CDCDD3;
 $bandos-muted: #9D9DA7;
 $bandos-hint: #7C7C86;
 $bandos-scroll-thumb: #5C5C70;
@@ -104,17 +104,45 @@ a:hover { text-decoration: underline; }
 .mat-mdc-card { background: $bandos-card !important; border: 1px solid $bandos-stroke; border-radius: 12px !important; color: $bandos-text; padding: 16px; }
 .mat-mdc-form-field { width: 100%; }
 .mat-mdc-form-field-subscript-wrapper { font-size: 12px; }
-/* Outline variant — gold/amber border via MDC tokens, always visible */
+/* Inputs — calm inset wells on the card surface; gold accent only on focus */
 .mat-mdc-form-field {
-  --mdc-outlined-text-field-outline-color:       #{$bandos-secondary};
-  --mdc-outlined-text-field-hover-outline-color: #{$bandos-secondary};
-  --mdc-outlined-text-field-focus-outline-color: #{$bandos-secondary};
-  --mdc-outlined-text-field-focus-label-text-color: #{$bandos-secondary};
-  --mdc-outlined-text-field-caret-color:         #{$bandos-secondary};
+  --mdc-outlined-text-field-outline-color:                 #3A3A44;
+  --mdc-outlined-text-field-hover-outline-color:           #55555F;
+  --mdc-outlined-text-field-focus-outline-color:           #{$bandos-secondary};
+  --mdc-outlined-text-field-label-text-color:              #{$bandos-muted};
+  --mdc-outlined-text-field-hover-label-text-color:        #{$bandos-text};
+  --mdc-outlined-text-field-focus-label-text-color:        #{$bandos-secondary};
+  --mdc-outlined-text-field-input-text-color:              #{$bandos-text};
+  --mdc-outlined-text-field-input-text-placeholder-color:  #{$bandos-hint};
+  --mdc-outlined-text-field-caret-color:                   #{$bandos-secondary};
+  --mdc-outlined-text-field-container-shape:               10px;
 }
+/* Subtle inset fill so each field reads as a recessed well on the #20202A surface */
+.mat-mdc-form-field .mdc-text-field--outlined {
+  background: #1A1A20;
+  border-radius: 10px;
+}
+/* Trim the resting outline so the soft fill carries the shape, not a heavy border */
+.mat-mdc-form-field:not(.mat-focused) .mdc-notched-outline__leading,
+.mat-mdc-form-field:not(.mat-focused) .mdc-notched-outline__notch,
+.mat-mdc-form-field:not(.mat-focused) .mdc-notched-outline__trailing {
+  border-width: 1px;
+}
+/* Primary actions — solid gold with dark text (matches the input focus accent) */
 .mat-mdc-raised-button.mat-primary,
 .mat-mdc-unelevated-button.mat-primary,
-.mat-mdc-flat-button.mat-primary { background-color: $bandos-accent !important; color: white !important; }
+.mat-mdc-flat-button.mat-primary {
+  background-color: $bandos-secondary !important;
+  color: #1A1A20 !important;
+}
+.mat-mdc-raised-button.mat-primary:hover,
+.mat-mdc-unelevated-button.mat-primary:hover,
+.mat-mdc-flat-button.mat-primary:hover {
+  background-color: #D4B68C !important; /* slightly lighter gold on hover */
+}
+.mat-mdc-raised-button.mat-primary .mat-icon,
+.mat-mdc-unelevated-button.mat-primary .mat-icon,
+.mat-mdc-flat-button.mat-primary .mat-icon { color: #1A1A20 !important; }
 .mat-mdc-outlined-button { border-color: $bandos-stroke !important; color: $bandos-text !important; }
 
 .mat-mdc-dialog-container .mat-mdc-dialog-surface {

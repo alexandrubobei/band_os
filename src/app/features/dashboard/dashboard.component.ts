@@ -115,7 +115,7 @@ import * as M from '../../core/models/models';
   styles: [`
     /* ── Sections ── */
     .section { margin-top: 28px; }
-    .section-title { margin: 0 0 16px; font-size: 16px; font-weight: 700; color: #E6E6EC; padding-bottom: 12px; border-bottom: 1px solid #2A2A31; }
+    .section-title { margin: 0 0 16px; font-size: 16px; font-weight: 700; color: #CDCDD3; padding-bottom: 12px; border-bottom: 1px solid #383842; }
 
     h3 { margin: 0 0 8px; font-size: 14px; color: #9D9DA7; font-weight: 600; }
     .stat { font-size: 38px; font-weight: 800; line-height: 1; margin: 6px 0 12px; }
@@ -137,7 +137,7 @@ import * as M from '../../core/models/models';
     .days-badge.days-warning { background: #FBBF24; color: #1A1A1A; }
     .days-badge.days-soon { background: #EF4A35; color: white; }
     .ev-meta-group { display: flex; flex-direction: column; gap: 6px; }
-    .ev-meta-item { display: flex; align-items: center; gap: 6px; font-size: 13px; color: #E6E6EC; }
+    .ev-meta-item { display: flex; align-items: center; gap: 6px; font-size: 13px; color: #CDCDD3; }
     .ev-meta-item mat-icon { font-size: 16px; width: 16px; height: 16px; color: #C8A77B; flex-shrink: 0; }
 
     @media (max-width: 1024px) {
@@ -150,7 +150,7 @@ import * as M from '../../core/models/models';
     /* ── My Tasks ── */
     .my-tasks-section { margin-top: 24px; }
     .my-tasks-list { display: flex; flex-direction: column; gap: 8px; }
-    .my-task-item { display: flex; align-items: flex-start; gap: 12px; padding: 12px; background: #1D1D23; border: 1px solid #2A2A31; border-radius: 10px; cursor: pointer; transition: all 0.2s ease; border-left: 3px solid #9D9DA7; }
+    .my-task-item { display: flex; align-items: flex-start; gap: 12px; padding: 12px; background: #1D1D23; border: 1px solid #383842; border-radius: 10px; cursor: pointer; transition: all 0.2s ease; border-left: 3px solid #9D9DA7; }
     .my-task-item:hover { background: #22222A; border-left-color: #C8A77B; }
     .my-task-item.priority-high { border-left-color: #EF4A35; }
     .my-task-item.priority-medium { border-left-color: #C8A77B; }
@@ -158,7 +158,7 @@ import * as M from '../../core/models/models';
     .task-dot.high { background: #EF4A35; }
     .task-dot.medium { background: #C8A77B; }
     .task-details { flex: 1; min-width: 0; }
-    .task-title { font-weight: 700; font-size: 13px; color: #E6E6EC; margin-bottom: 4px; }
+    .task-title { font-weight: 700; font-size: 13px; color: #CDCDD3; margin-bottom: 4px; }
     .task-meta { display: flex; align-items: center; gap: 8px; font-size: 11px; }
     .due-date { color: #9D9DA7; padding: 2px 6px; background: #16161B; border-radius: 4px; }
     .due-date.overdue { color: #EF4A35; background: rgba(239, 74, 53, 0.15); }

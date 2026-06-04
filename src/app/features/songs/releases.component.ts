@@ -173,17 +173,17 @@ export class ReleaseEditorForm implements OnChanges {
     .new-release-row { display: flex; justify-content: flex-start; margin-bottom: 12px; }
 
     /* ── Desktop Table ── */
-    .releases-table-wrap { background: #1D1D23; border: 1px solid #2A2A31; border-radius: 12px; overflow: hidden; }
+    .releases-table-wrap { background: #1D1D23; border: 1px solid #383842; border-radius: 12px; overflow: hidden; }
     .releases-table { width: 100%; background: transparent; }
     .releases-table th.mat-mdc-header-cell { background: #16161B; color: #9D9DA7; font-weight: 700; font-size: 12px; text-transform: uppercase; letter-spacing: 0.04em; }
-    .releases-table td.mat-mdc-cell, .releases-table th.mat-mdc-header-cell { border-bottom-color: #2A2A31; color: #E6E6EC; }
+    .releases-table td.mat-mdc-cell, .releases-table th.mat-mdc-header-cell { border-bottom-color: #383842; color: #CDCDD3; }
     .release-row { cursor: pointer; }
     .release-row:hover td.mat-mdc-cell { background: #22222A; }
     .actions-col { width: 56px; text-align: right; white-space: nowrap; }
 
     /* ── Mobile Cards ── */
     .releases-mobile { display: none; flex-direction: column; gap: 10px; }
-    .release-card { background: #1D1D23; border: 1px solid #2A2A31; border-radius: 12px; padding: 12px 14px; cursor: pointer; display: flex; flex-direction: column; gap: 8px; }
+    .release-card { background: #1D1D23; border: 1px solid #383842; border-radius: 12px; padding: 12px 14px; cursor: pointer; display: flex; flex-direction: column; gap: 8px; }
     .release-card:hover { background: #22222A; }
     .card-header { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
     h3 { font-weight: 800; margin: 0; }
@@ -192,19 +192,19 @@ export class ReleaseEditorForm implements OnChanges {
 
     /* ── Side panel ── */
     .panel-backdrop { position: fixed; inset: 0; z-index: 200; background: transparent; pointer-events: none; transition: background 0.25s ease; }
-    .panel-backdrop.visible { background: rgba(0,0,0,0.55); pointer-events: all; }
-    .editor-panel { position: fixed; top: 0; right: 0; bottom: 0; width: 460px; z-index: 201; background: #17171B; border-left: 1px solid #2A2A31; display: flex; flex-direction: column; transform: translateX(100%); transition: transform 0.3s cubic-bezier(0.4,0,0.2,1); box-shadow: -12px 0 40px rgba(0,0,0,0.6); }
+    .panel-backdrop.visible { background: rgba(0,0,0,0.35); }
+    .editor-panel { position: fixed; top: 16px; right: 16px; bottom: 16px; width: 460px; z-index: 201; background: #20202A; border: 1px solid #383842; border-radius: 16px; overflow: hidden; display: flex; flex-direction: column; transform: translateX(calc(100% + 32px)); transition: transform 0.3s cubic-bezier(0.4,0,0.2,1); box-shadow: 0 12px 48px rgba(0,0,0,0.55); }
     .editor-panel.open { transform: translateX(0); }
-    .panel-header { display: flex; align-items: center; justify-content: space-between; padding: 16px 20px 14px; border-bottom: 1px solid #2A2A31; flex-shrink: 0; }
+    .panel-header { display: flex; align-items: center; justify-content: space-between; padding: 16px 20px 14px; border-bottom: 1px solid #383842; flex-shrink: 0; }
     .panel-header-text { display: flex; flex-direction: column; gap: 2px; min-width: 0; flex: 1; }
     .panel-label { font-size: 11px; font-weight: 700; color: #9D9DA7; text-transform: uppercase; letter-spacing: 0.06em; }
-    .panel-title { font-size: 17px; font-weight: 800; color: #F6F1E8; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .panel-title { font-size: 17px; font-weight: 800; color: #CDCDD3; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
     .panel-body { flex: 1; overflow-y: auto; padding: 20px; }
 
     @media (max-width: 760px) {
       .releases-desktop { display: none; }
       .releases-mobile { display: flex; }
-      .editor-panel { width: 100%; }
+      .editor-panel { inset: 0; width: 100%; border-radius: 0; border: none; }
     }
   `],
 })
@@ -217,13 +217,23 @@ export class ReleasesComponent {
 
   displayedColumns = ['title', 'type', 'releaseDate', 'actions'];
   panelOpen = signal(false);
+  private _keepPanelOpen = false;
   panelItem = signal<M.SongRelease | null>(null);
 
-  openPanel(item: M.SongRelease | null) { this.panelItem.set(item); this.panelOpen.set(true); }
+  openPanel(item: M.SongRelease | null) { this.panelItem.set(item); this.panelOpen.set(true); this._keepPanelOpen = true; setTimeout(() => (this._keepPanelOpen = false)); }
   closePanel() { this.panelOpen.set(false); }
 
   @HostListener('document:keydown.escape')
   onEscape() { if (this.panelOpen()) this.closePanel(); }
+
+  @HostListener("document:click", ["$event"])
+  onDocumentClick(ev: MouseEvent) {
+    if (!this.panelOpen()) return;
+    if (this._keepPanelOpen) { this._keepPanelOpen = false; return; }
+    const target = ev.target as HTMLElement | null;
+    if (target && target.closest(".editor-panel, .songs-panel, .cdk-overlay-container")) return;
+    this.closePanel();
+  }
 
   newRelease() { this.openPanel(null); }
   edit(r: M.SongRelease) { this.openPanel(r); }

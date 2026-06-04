@@ -207,7 +207,7 @@ function fileExtension(name: string): string {
     .audio-section { display: flex; flex-direction: column; gap: 8px; padding-top: 4px; }
     .audio-section h3 { margin: 0; font-size: 15px; font-weight: 700; }
     .audio-hint { margin: 0; color: #9D9DA7; font-size: 13px; }
-    .audio-current { background: #1D1D23; border: 1px solid #2A2A31; border-radius: 10px; padding: 12px; }
+    .audio-current { background: #1D1D23; border: 1px solid #383842; border-radius: 10px; padding: 12px; }
     .audio-info { display: flex; gap: 12px; align-items: center; }
     .audio-info mat-icon { color: #C8A77B; }
     .audio-name { font-weight: 700; word-break: break-all; }
@@ -216,8 +216,8 @@ function fileExtension(name: string): string {
     .form-actions { display: flex; gap: 8px; padding-top: 12px; align-items: center; }
 
     /* Key search dropdown styles */
-    .key-search-wrapper { padding: 8px; border-bottom: 1px solid #2A2A31; }
-    .key-search-input { width: 100%; padding: 8px 12px; background: #1D1D23; border: 1px solid #2A2A31; border-radius: 6px; color: #E6E6EC; font-size: 13px; font-family: inherit; }
+    .key-search-wrapper { padding: 8px; border-bottom: 1px solid #383842; }
+    .key-search-input { width: 100%; padding: 8px 12px; background: #1D1D23; border: 1px solid #383842; border-radius: 6px; color: #CDCDD3; font-size: 13px; font-family: inherit; }
     .key-search-input::placeholder { color: #9D9DA7; }
     .key-search-input:focus { outline: none; border-color: #C8A77B; background: #22222A; }
   `],
@@ -614,10 +614,10 @@ export class SongEditorForm {
   `,
   styles: [`
     .new-song-row { display: flex; justify-content: flex-start; margin-bottom: 12px; }
-    .songs-table-wrap { background: #1D1D23; border: 1px solid #2A2A31; border-radius: 12px; overflow: hidden; }
+    .songs-table-wrap { background: #1D1D23; border: 1px solid #383842; border-radius: 12px; overflow: hidden; }
     .songs-table { width: 100%; background: transparent; }
     .songs-table th.mat-mdc-header-cell { background: #16161B; color: #9D9DA7; font-weight: 700; font-size: 12px; text-transform: uppercase; letter-spacing: 0.04em; }
-    .songs-table td.mat-mdc-cell, .songs-table th.mat-mdc-header-cell { border-bottom-color: #2A2A31; color: #E6E6EC; }
+    .songs-table td.mat-mdc-cell, .songs-table th.mat-mdc-header-cell { border-bottom-color: #383842; color: #CDCDD3; }
     .song-row { cursor: pointer; }
     .song-row:hover td.mat-mdc-cell { background: #22222A; }
     .song-row.is-selected td.mat-mdc-cell { background: #1E1E2C; border-left-color: transparent; }
@@ -651,32 +651,32 @@ export class SongEditorForm {
       background: transparent; pointer-events: none;
       transition: background 0.25s ease;
     }
-    .panel-backdrop.visible { background: rgba(0,0,0,0.55); pointer-events: all; }
+    .panel-backdrop.visible { background: rgba(0,0,0,0.35); }
 
     .songs-panel {
-      position: fixed; top: 0; right: 0; bottom: 0; z-index: 201;
+      position: fixed; top: 16px; right: 16px; bottom: 16px; z-index: 201;
       width: 460px;
-      background: #17171B; border-left: 1px solid #2A2A31;
+      background: #20202A; border: 1px solid #383842; border-radius: 16px; overflow: hidden;
       display: flex; flex-direction: column;
-      transform: translateX(100%);
+      transform: translateX(calc(100% + 32px));
       transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-      box-shadow: -12px 0 40px rgba(0,0,0,0.6);
+      box-shadow: 0 12px 48px rgba(0,0,0,0.55);
     }
     .songs-panel.open { transform: translateX(0); }
 
     .panel-accent { height: 3px; flex-shrink: 0; transition: background 0.25s; }
     .panel-header {
       display: flex; align-items: center; justify-content: space-between;
-      padding: 16px 20px 14px; border-bottom: 1px solid #2A2A31; flex-shrink: 0;
+      padding: 16px 20px 14px; border-bottom: 1px solid #383842; flex-shrink: 0;
     }
     .panel-header-text { display: flex; flex-direction: column; gap: 2px; min-width: 0; flex: 1; }
     .panel-label { font-size: 11px; font-weight: 700; color: #9D9DA7; text-transform: uppercase; letter-spacing: 0.06em; }
-    .panel-title { font-size: 17px; font-weight: 800; color: #F6F1E8; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .panel-title { font-size: 17px; font-weight: 800; color: #CDCDD3; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
     .panel-body { flex: 1; overflow-y: auto; padding: 20px; }
 
     /* ── Mobile cards ── */
     .songs-mobile { display: none; flex-direction: column; gap: 10px; }
-    .song-card { background: #1D1D23; border: 1px solid #2A2A31; border-radius: 12px; padding: 12px 14px; cursor: pointer; display: flex; flex-direction: column; gap: 8px; }
+    .song-card { background: #1D1D23; border: 1px solid #383842; border-radius: 12px; padding: 12px 14px; cursor: pointer; display: flex; flex-direction: column; gap: 8px; }
     .song-card:hover { background: #22222A; }
     .song-card-header { display: flex; align-items: center; gap: 8px; }
     .song-card-header .title-cell { flex: 1; min-width: 0; }
@@ -687,7 +687,7 @@ export class SongEditorForm {
     @media (max-width: 760px) {
       .songs-desktop { display: none; }
       .songs-mobile { display: flex; }
-      .songs-panel { width: 100%; }
+      .songs-panel { inset: 0; width: 100%; border-radius: 0; border: none; }
     }
 
     /* ── Status left-border stripes ── */
@@ -759,6 +759,7 @@ export class SongsComponent {
   displayedColumns = ['title', 'status', 'key', 'difficulty', 'duration', 'actions'];
 
   panelOpen = signal(false);
+  private _keepPanelOpen = false;
   panelSong = signal<M.Song | null>(null);
 
   private readonly STATUS_COLORS: Record<M.SongStatus, string> = {
@@ -775,10 +776,20 @@ export class SongsComponent {
 
   @HostListener('document:keydown.escape')
   onEscape() { if (this.panelOpen()) this.closePanel(); }
+  //
+  // @HostListener("document:click", ["$event"])
+  // onDocumentClick(ev: MouseEvent) {
+  //   if (!this.panelOpen()) return;
+  //   if (this._keepPanelOpen) { this._keepPanelOpen = false; return; }
+  //   const target = ev.target as HTMLElement | null;
+  //   if (target && target.closest(".editor-panel, .songs-panel, .cdk-overlay-container")) return;
+  //   this.closePanel();
+  // }
 
   openPanel(song: M.Song | null) {
+    console.log('clicked');
     this.panelSong.set(song);
-    this.panelOpen.set(true);
+    this.panelOpen.set(true); this._keepPanelOpen = true; setTimeout(() => (this._keepPanelOpen = false));
   }
 
   closePanel() { this.panelOpen.set(false); }
