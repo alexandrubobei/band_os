@@ -1,10 +1,7 @@
-import { Component, computed, effect, inject } from '@angular/core';
+import { Component, HostListener, computed, effect, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { RouterLink, RouterLinkActive, RouterOutlet, Router } from '@angular/router';
 import { MatIconModule } from '@angular/material/icon';
-import { MatButtonModule } from '@angular/material/button';
-import { MatMenuModule } from '@angular/material/menu';
-import { MatDividerModule } from '@angular/material/divider';
 import { AuthController } from '../../core/state/auth-controller.service';
 import { WorkspaceController } from '../../core/state/workspace-controller.service';
 import { BandAvatarComponent } from '../../shared/components/band-avatar.component';
@@ -19,7 +16,7 @@ interface NavItem { label: string; icon: string; route: string; color: string; p
   standalone: true,
   imports: [
     CommonModule, RouterLink, RouterLinkActive, RouterOutlet,
-    MatIconModule, MatButtonModule, MatMenuModule, MatDividerModule,
+    MatIconModule,
     BandAvatarComponent, BandosMarkLogoComponent, ActivityFeedComponent,
   ],
   template: `
@@ -49,20 +46,23 @@ interface NavItem { label: string; icon: string; route: string; color: string; p
         </nav>
 
         <div class="sidebar-footer">
-          <button mat-button [matMenuTriggerFor]="userMenu" class="user-button">
+          <button class="user-button" [class.open]="menuOpen()" (click)="toggleMenu($event)">
             <band-avatar [displayName]="displayName()" [size]="32"></band-avatar>
             <span class="user-name">{{ displayName() }}</span>
-            <mat-icon>more_vert</mat-icon>
+            <mat-icon class="user-caret">expand_less</mat-icon>
           </button>
-          <mat-menu #userMenu="matMenu">
-            <button mat-menu-item (click)="goBand()">
-              <mat-icon>group</mat-icon><span>Band settings</span>
-            </button>
-            <mat-divider></mat-divider>
-            <button mat-menu-item (click)="signOut()">
-              <mat-icon>logout</mat-icon><span>Sign out</span>
-            </button>
-          </mat-menu>
+
+          @if (menuOpen()) {
+            <div class="user-menu" (click)="$event.stopPropagation()">
+              <button class="user-menu-item" (click)="goBand()">
+                <mat-icon>group</mat-icon><span>Band settings</span>
+              </button>
+              <div class="user-menu-sep"></div>
+              <button class="user-menu-item danger" (click)="signOut()">
+                <mat-icon>logout</mat-icon><span>Sign out</span>
+              </button>
+            </div>
+          }
         </div>
       </aside>
 
@@ -99,9 +99,39 @@ interface NavItem { label: string; icon: string; route: string; color: string; p
     .nav-item.active { background: rgba(239, 74, 53, 0.12); color: #EF4A35; }
     .nav-item mat-icon { font-size: 18px; width: 18px; height: 18px; }
     .nav-badge { margin-left: auto; background: #EF4A35; color: #fff; font-size: 10px; font-weight: 800; min-width: 18px; height: 18px; padding: 0 5px; border-radius: 999px; display: inline-flex; align-items: center; justify-content: center; }
-    .sidebar-footer { border-top: 1px solid #383842; padding-top: 12px; }
-    .user-button { width: 100%; justify-content: flex-start !important; gap: 10px; }
-    .user-name { flex: 1; text-align: left; font-size: 13px; }
+    .sidebar-footer { border-top: 1px solid #383842; padding-top: 12px; position: relative; }
+    .user-button {
+      width: 100%; display: flex; align-items: center; gap: 10px;
+      background: none; border: 1px solid transparent; border-radius: 10px;
+      padding: 8px 10px; cursor: pointer; color: #CDCDD3; text-align: left;
+      transition: background 0.15s ease, border-color 0.15s ease;
+    }
+    .user-button:hover { background: #20202A; }
+    .user-button.open { background: #20202A; border-color: #383842; }
+    .user-name { flex: 1; min-width: 0; font-size: 13px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .user-caret { font-size: 18px; width: 18px; height: 18px; color: #9D9DA7; transition: transform 0.2s ease; }
+    .user-button.open .user-caret { transform: rotate(180deg); }
+
+    .user-menu {
+      position: absolute; left: 0; right: 0; bottom: calc(100% + 6px);
+      background: #20202A; border: 1px solid #383842; border-radius: 12px;
+      padding: 6px; z-index: 50; box-shadow: 0 12px 32px rgba(0,0,0,0.55);
+      animation: userMenuIn 0.14s ease;
+    }
+    @keyframes userMenuIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
+    .user-menu-item {
+      width: 100%; display: flex; align-items: center; gap: 12px;
+      background: none; border: none; cursor: pointer;
+      padding: 10px 12px; border-radius: 8px; color: #CDCDD3;
+      font-size: 13px; font-weight: 600; text-align: left;
+      transition: background 0.12s ease, color 0.12s ease;
+    }
+    .user-menu-item:hover { background: #2A2A33; color: #C8A77B; }
+    .user-menu-item mat-icon { font-size: 18px; width: 18px; height: 18px; color: #9D9DA7; transition: color 0.12s ease; }
+    .user-menu-item:hover mat-icon { color: #C8A77B; }
+    .user-menu-item.danger:hover { color: #EF4A35; }
+    .user-menu-item.danger:hover mat-icon { color: #EF4A35; }
+    .user-menu-sep { height: 1px; background: #383842; margin: 6px 4px; }
     .content { background: #14141A; overflow-y: auto; min-width: 0; }
     .activity-panel { background: #16161B; border-left: 1px solid #383842; overflow: hidden; display: flex; flex-direction: column; }
     @media (max-width: 1280px) {
@@ -121,6 +151,7 @@ export class AppShellComponent {
   private readonly messaging = inject(MessagingService);
 
   readonly messagingUnread = this.messaging.totalUnread;
+  readonly menuOpen = signal(false);
 
   constructor() {
     // Track messaging workspace-wide so the nav unread badge stays live everywhere.
@@ -130,6 +161,15 @@ export class AppShellComponent {
       else this.messaging.stopTracking();
     }, { allowSignalWrites: true });
   }
+
+  toggleMenu(ev: Event) { ev.stopPropagation(); this.menuOpen.update(v => !v); }
+  closeMenu() { this.menuOpen.set(false); }
+
+  @HostListener('document:click')
+  onDocumentClick() { if (this.menuOpen()) this.menuOpen.set(false); }
+
+  @HostListener('document:keydown.escape')
+  onEscape() { if (this.menuOpen()) this.menuOpen.set(false); }
 
   items: NavItem[] = [
     { label: 'Dashboard', icon: 'dashboard',              route: 'dashboard', color: '#60A5FA' },
@@ -149,8 +189,9 @@ export class AppShellComponent {
   workspaceGenre = computed(() => this.ws.workspace()?.genre ?? '');
   displayName = computed(() => this.auth.user?.displayName ?? '');
 
-  goBand() { this.router.navigate(['/app/band']); }
+  goBand() { this.closeMenu(); this.router.navigate(['/app/band']); }
   async signOut() {
+    this.closeMenu();
     await this.auth.signOut();
     this.router.navigate(['/sign-in']);
   }
